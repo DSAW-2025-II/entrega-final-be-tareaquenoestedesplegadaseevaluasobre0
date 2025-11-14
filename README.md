@@ -4,7 +4,9 @@
 ## URL Frontend: SU_URL_AQUÍ
 ## URL Backend: SU_URL_AQUÍ
 ## Nombre estudiante 1: 
+Martín Polo Santini
 ## Nombre estudinate 2:
+Pablo Andrés Tamayo González
 
 # MODIFIQUE ESTE README AGREGANDO LA INFORMACIÓN QUE CONSIDERE PERTINENTE
 
