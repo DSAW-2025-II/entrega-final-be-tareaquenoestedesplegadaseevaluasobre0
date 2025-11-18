@@ -81,19 +81,35 @@ const paymentRoutes = require('./api/routes/paymentRoutes');
 app.use('/api', paymentRoutes);
 
 // Archivos estáticos: servir uploads con headers CORS
+// En Vercel serverless, los archivos se guardan en /tmp (efímero), así que no servimos estáticos desde aquí
+// Los archivos deberían estar en un servicio de almacenamiento en la nube (S3, Cloudinary, etc.)
+const isVercel = process.env.VERCEL === '1';
 const uploadDir = process.env.UPLOAD_DIR || 'uploads';
-app.use('/uploads', (req, res, next) => {
-  const origin = req.headers.origin;
-  const isAllowedOrigin = process.env.CORS_ORIGINS === '*' || 
-    (Array.isArray(allowedOrigins) && origin && allowedOrigins.includes(origin));
-  
-  if (isAllowedOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  }
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); // Permitir imágenes cross-origin
-  next();
-}, express.static(path.join(__dirname, '..', uploadDir)));
+
+if (!isVercel) {
+  // Solo servir archivos estáticos en desarrollo/local
+  app.use('/uploads', (req, res, next) => {
+    const origin = req.headers.origin;
+    const isAllowedOrigin = process.env.CORS_ORIGINS === '*' || 
+      (Array.isArray(allowedOrigins) && origin && allowedOrigins.includes(origin));
+    
+    if (isAllowedOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', origin || '*');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); // Permitir imágenes cross-origin
+    next();
+  }, express.static(path.join(__dirname, '..', uploadDir)));
+} else {
+  // En Vercel, responder 404 para rutas de uploads (archivos deberían estar en almacenamiento en la nube)
+  app.use('/uploads', (req, res) => {
+    res.status(404).json({
+      code: 'not_found',
+      message: 'Static file serving not available in serverless environment. Files should be stored in cloud storage.',
+      correlationId: req.correlationId
+    });
+  });
+}
 
 // Health check: endpoint para verificar que el servidor está funcionando
 app.get('/health', (req, res) => {

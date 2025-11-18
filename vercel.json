@@ -1,16 +1,17 @@
 {
   "version": 2,
-  "builds": [
+  "buildCommand": null,
+  "outputDirectory": null,
+  "rewrites": [
     {
-      "src": "src/index.js",
-      "use": "@vercel/node"
+      "source": "/(.*)",
+      "destination": "/api"
     }
   ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "src/index.js"
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30
     }
-  ]
+  }
 }
 
