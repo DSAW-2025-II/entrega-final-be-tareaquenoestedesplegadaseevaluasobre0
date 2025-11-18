@@ -54,7 +54,14 @@ class UserController {
       const csrfToken = generateCsrfToken();
       setCsrfCookie(res, csrfToken);
 
-      res.status(201).json(user);
+      // Incluir token CSRF en la respuesta para que el frontend pueda leerlo inmediatamente
+      // (backup en caso de que la cookie no se establezca correctamente en producción)
+      const response = {
+        ...user,
+        csrfToken: csrfToken
+      };
+
+      res.status(201).json(response);
 
     } catch (error) {
       // Si hay archivo subido y ocurre error, limpiarlo

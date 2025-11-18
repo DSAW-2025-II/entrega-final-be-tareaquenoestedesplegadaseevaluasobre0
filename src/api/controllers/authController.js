@@ -45,13 +45,16 @@ class AuthController {
       console.log(`[AuthController] Login successful | userId: ${user.id} | role: ${user.role} | correlationId: ${req.correlationId}`);
 
       // Retornar DTO mínimo (sin contraseña ni campos sensibles)
+      // Incluir token CSRF en la respuesta para que el frontend pueda leerlo inmediatamente
+      // (backup en caso de que la cookie no se establezca correctamente en producción)
       const response = {
         id: user.id,
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
         corporateEmail: user.corporateEmail,
-        profilePhotoUrl: user.profilePhoto || null
+        profilePhotoUrl: user.profilePhoto || null,
+        csrfToken: csrfToken // Incluir token CSRF en respuesta para acceso inmediato
       };
       
       console.log('[AuthController] Response body:', response);
