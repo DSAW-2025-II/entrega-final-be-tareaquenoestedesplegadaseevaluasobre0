@@ -66,6 +66,16 @@ class BookingRequestResponseDto {
         }
       }
       
+      // Extraer vehicleId - puede ser string ObjectId u objeto poblado
+      let vehicleIdValue = null;
+      if (trip.vehicleId) {
+        if (typeof trip.vehicleId === 'object') {
+          vehicleIdValue = trip.vehicleId._id?.toString() || trip.vehicleId.id;
+        } else {
+          vehicleIdValue = trip.vehicleId.toString();
+        }
+      }
+      
       this.trip = {
         id: trip.id || trip._id?.toString(),
         driverId: driverIdValue, // Incluir driverId para navegación
@@ -75,6 +85,7 @@ class BookingRequestResponseDto {
         estimatedArrivalAt: trip.estimatedArrivalAt,
         pricePerSeat: trip.pricePerSeat,
         status: trip.status,
+        notes: trip.notes || null,
         // Incluir información del conductor si está poblada
         driver: trip.driverId && typeof trip.driverId === 'object' ? {
           id: trip.driverId._id?.toString() || trip.driverId.id,
@@ -82,6 +93,13 @@ class BookingRequestResponseDto {
           lastName: trip.driverId.lastName,
           corporateEmail: trip.driverId.corporateEmail,
           profilePhotoUrl: trip.driverId.profilePhoto || null
+        } : undefined,
+        // Incluir información del vehículo si está poblada
+        vehicle: trip.vehicleId && typeof trip.vehicleId === 'object' ? {
+          id: trip.vehicleId._id?.toString() || trip.vehicleId.id,
+          brand: trip.vehicleId.brand,
+          model: trip.vehicleId.model,
+          plate: trip.vehicleId.plate || null
         } : undefined
       };
     }

@@ -167,13 +167,19 @@ class MongoBookingRequestRepository {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('tripId', 'origin destination departureAt estimatedArrivalAt pricePerSeat status driverId')
+        .populate('tripId', 'origin destination departureAt estimatedArrivalAt pricePerSeat status driverId vehicleId notes')
         .populate({
           path: 'tripId',
-          populate: {
-            path: 'driverId',
-            select: 'firstName lastName corporateEmail'
-          }
+          populate: [
+            {
+              path: 'driverId',
+              select: 'firstName lastName corporateEmail profilePhoto'
+            },
+            {
+              path: 'vehicleId',
+              select: 'brand model plate'
+            }
+          ]
         })
         .populate('passengerId', 'firstName lastName corporateEmail')
         .lean(),
