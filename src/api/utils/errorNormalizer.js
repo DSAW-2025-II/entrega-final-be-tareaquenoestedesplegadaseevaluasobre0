@@ -1,48 +1,57 @@
 /**
- * Normalize errors to ensure they carry an HTTP statusCode and a stable code string
- * This is defensive: some callsites throw plain Error or set inconsistent shapes.
+ * Normalizador de errores: asegura que todos los errores tengan un código de estado HTTP y un código de error estable.
+ * Esto es defensivo: algunos lugares del código lanzan Error plano o establecen formas inconsistentes.
  */
 const DomainError = require('../../domain/errors/DomainError');
 
+// Mapeo de códigos de error a códigos de estado HTTP
 const codeToStatus = {
-  invalid_booking_state: 409,
-  duplicate_payment: 409,
-  booking_already_paid: 409,
-  forbidden_owner: 403,
-  forbidden: 403,
-  unauthorized: 401,
-  invalid_signature: 400,
-  invalid_schema: 400,
-  csrf_mismatch: 403,
-  payload_too_large: 413
+  invalid_booking_state: 409, // Conflict
+  duplicate_payment: 409, // Conflict
+  booking_already_paid: 409, // Conflict
+  forbidden_owner: 403, // Forbidden
+  forbidden: 403, // Forbidden
+  unauthorized: 401, // Unauthorized
+  invalid_signature: 400, // Bad Request
+  invalid_schema: 400, // Bad Request
+  csrf_mismatch: 403, // Forbidden
+  payload_too_large: 413 // Payload Too Large
 };
 
+/**
+ * Convierte nombre de clase de error de camelCase a snake_case.
+ * Ejemplo: 'InvalidBookingStateError' -> 'invalid_booking_state'
+ */
 function camelToSnake(str) {
   return str
-    .replace(/Error$/, '')
-    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/Error$/, '') // Eliminar sufijo 'Error'
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2') // Insertar guion bajo antes de mayúsculas
     .toLowerCase();
 }
 
+/**
+ * Normaliza un error para asegurar que tenga statusCode y code consistentes.
+ * Maneja diferentes formas de errores: DomainError, Error plano, errores con código, etc.
+ */
 function normalizeError(err) {
   if (!err || typeof err !== 'object') return err;
 
-  // If already has both properties, leave it
+  // Si ya tiene ambas propiedades, dejarlo como está
   if (typeof err.statusCode === 'number' && typeof err.code === 'string') {
     return err;
   }
 
-  // If it's a DomainError instance, ensure fields exist
+  // Si es una instancia de DomainError, asegurar que los campos existan
   if (err instanceof DomainError) {
     err.statusCode = err.statusCode || 400;
     err.code = err.code || camelToSnake(err.name || 'domain_error');
     return err;
   }
 
-  // If name looks like a DomainError subclass (but instanceof check failed due to module duplication), derive values
+  // Si el nombre parece una subclase de DomainError (pero instanceof falló por duplicación de módulos), derivar valores
   if (typeof err.name === 'string' && err.name.endsWith('Error')) {
     err.code = err.code || camelToSnake(err.name);
-    // If it's one of known conflict errors, mark as 409
+    // Si es uno de los errores de conflicto conocidos, marcar como 409
     if (['InvalidBookingStateError', 'DuplicatePaymentError', 'BookingAlreadyPaidError'].includes(err.name)) {
       err.statusCode = err.statusCode || 409;
     } else {
@@ -51,21 +60,21 @@ function normalizeError(err) {
     return err;
   }
 
-  // If a string code is present, map to status if possible
+  // Si hay un código string presente, mapear a estado si es posible
   if (typeof err.code === 'string') {
     err.statusCode = err.statusCode || codeToStatus[err.code] || 400;
     return err;
   }
 
-  // If numeric code erroneously used as HTTP status, honor it
+  // Si código numérico usado erróneamente como estado HTTP, respetarlo
   if (typeof err.code === 'number' && err.code >= 400 && err.code < 600) {
     err.statusCode = err.statusCode || err.code;
-    // also set a generic code string
+    // También establecer un código string genérico
     err.code = String(err.code);
     return err;
   }
 
-  // Fallback: mark as 500 (server error) but keep message
+  // Fallback: marcar como 500 (error del servidor) pero mantener mensaje
   err.statusCode = err.statusCode || 500;
   err.code = err.code || 'internal_server_error';
   return err;

@@ -1,10 +1,5 @@
-/**
- * BookingRequest Domain Entity
- * 
- * Represents a passenger's request to book seats on a trip offer.
- * Encapsulates business logic and invariants for booking requests.
- */
-
+// Entidad de dominio BookingRequest: representa solicitud de pasajero para reservar asientos en oferta de viaje
+// Encapsula lógica de negocio e invariantes para solicitudes de reserva
 const InvalidTransitionError = require('../errors/InvalidTransitionError');
 
 class BookingRequest {
@@ -20,9 +15,13 @@ class BookingRequest {
     declinedAt = null,
     declinedBy = null,
     canceledAt = null,
-    cancellationReason = '', // Optional audit trail for passenger cancellations
-    refundNeeded = false, // Internal flag for refund policy hooks
-    isPaid = false, // US-4.1.5: Payment status (read model sync)
+    cancellationReason = '', // Pista de auditoría opcional para cancelaciones de pasajero
+    refundNeeded = false, // Bandera interna para hooks de política de reembolso
+    paymentMethod = null, // 'card' o 'cash'
+    paymentStatus = null, // 'pending' o 'completed'
+    stripePaymentIntentId = null,
+    paidAt = null,
+    isPaid = false, // Estado de pago (sincronización de modelo de lectura)
     createdAt = new Date(),
     updatedAt = new Date()
   }) {
@@ -37,18 +36,20 @@ class BookingRequest {
     this.declinedAt = declinedAt;
     this.declinedBy = declinedBy;
     this.canceledAt = canceledAt;
-    this.cancellationReason = cancellationReason; // Audit trail
-    this.refundNeeded = refundNeeded; // Internal flag, never exposed in DTOs
-    this.isPaid = isPaid; // US-4.1.5: Payment status
+    this.cancellationReason = cancellationReason; // Pista de auditoría
+    this.refundNeeded = refundNeeded; // Bandera interna, nunca expuesta en DTOs
+    this.paymentMethod = paymentMethod;
+    this.paymentStatus = paymentStatus;
+    this.stripePaymentIntentId = stripePaymentIntentId;
+    this.paidAt = paidAt;
+    this.isPaid = isPaid; // Estado de pago
     this.createdAt = createdAt;
     this.updatedAt = new Date();
 
     this.validate();
   }
 
-  /**
-   * Validate booking request invariants
-   */
+  // Validar invariantes de solicitud de reserva
   validate() {
     if (!this.tripId) {
       throw new Error('Trip ID is required');
@@ -58,14 +59,14 @@ class BookingRequest {
       throw new Error('Passenger ID is required');
     }
 
-    // Extended status values for US-3.3 and US-3.4
+    // Valores de estado extendidos
     const validStatuses = [
       'pending',
       'accepted',
       'declined',
-      'declined_auto', // US-3.4.2: Driver cancels trip
+      'declined_auto', // Conductor cancela viaje
       'canceled_by_passenger',
-      'canceled_by_platform', // US-3.4.2: Driver cancels trip
+      'canceled_by_platform', // Conductor cancela viaje
       'expired'
     ];
     
@@ -82,101 +83,67 @@ class BookingRequest {
     }
   }
 
-  /**
-   * Check if this booking is active (not canceled/expired)
-   * Active means: pending or accepted
-   */
+  // Verificar si esta reserva está activa (no cancelada/expirada): activa significa pending o accepted
   isActive() {
     return this.status === 'pending' || this.status === 'accepted';
   }
 
-  /**
-   * Check if this booking is pending (awaiting driver action)
-   */
+  // Verificar si esta reserva está pendiente (esperando acción del conductor)
   isPending() {
     return this.status === 'pending';
   }
 
-  /**
-   * Check if this booking has been accepted by driver
-   */
+  // Verificar si esta reserva ha sido aceptada por el conductor
   isAccepted() {
     return this.status === 'accepted';
   }
 
-  /**
-   * Check if this booking has been declined by driver
-   */
+  // Verificar si esta reserva ha sido rechazada por el conductor
   isDeclined() {
     return this.status === 'declined';
   }
 
-  /**
-   * Check if this booking has been canceled by passenger
-   */
+  // Verificar si esta reserva ha sido cancelada por el pasajero
   isCanceledByPassenger() {
     return this.status === 'canceled_by_passenger';
   }
 
-  /**
-   * Check if this booking is cancelable by passenger
-   * Legal states for cancellation: pending, accepted
-   * Cannot cancel: already canceled, declined, expired
-   */
+  // Verificar si esta reserva es cancelable por pasajero: estados legales para cancelación son pending, accepted
+  // No se puede cancelar: ya cancelada, rechazada, expirada
   isCancelableByPassenger() {
     return this.status === 'pending' || this.status === 'accepted';
   }
 
-  /**
-   * Check if canceling this booking requires seat deallocation
-   * Only accepted bookings have seats allocated in the ledger
-   */
+  // Verificar si cancelar esta reserva requiere desasignación de asientos: solo reservas aceptadas tienen asientos asignados en el ledger
   needsSeatDeallocation() {
     return this.status === 'accepted';
   }
 
-  /**
-   * Check if this booking can be canceled by passenger (legacy)
-   * @deprecated Use isCancelableByPassenger() for state machine guard
-   */
+  // Verificar si esta reserva puede ser cancelada por pasajero (legacy)
+  // @deprecated Usar isCancelableByPassenger() para guard de máquina de estados
   canBeCanceledByPassenger() {
     return this.status === 'pending';
   }
 
-  /**
-   * Check if this booking can be accepted by driver
-   * Only pending requests can be accepted
-   */
+  // Verificar si esta reserva puede ser aceptada por conductor: solo solicitudes pending pueden ser aceptadas
   canBeAccepted() {
     return this.status === 'pending';
   }
 
-  /**
-   * Check if this booking can be declined by driver
-   * Only pending requests can be declined
-   */
+  // Verificar si esta reserva puede ser rechazada por conductor: solo solicitudes pending pueden ser rechazadas
   canBeDeclined() {
     return this.status === 'pending';
   }
 
-  /**
-   * Cancel this booking request (passenger-initiated)
-   * Legal transitions: pending|accepted → canceled_by_passenger
-   * Idempotent: if already canceled, returns without error
-   * 
-   * @param {boolean} isPaid - Whether the booking was paid (determines refundNeeded flag)
-   * @param {boolean} policyEligible - Whether refund policy allows refund (time window check)
-   * @param {string} reason - Optional cancellation reason for audit trail
-   * @throws {InvalidTransitionError} if booking cannot be canceled from current state
-   * @returns {BookingRequest} this instance for chaining
-   */
+  // Cancelar esta solicitud de reserva (iniciada por pasajero): transiciones legales son pending|accepted → canceled_by_passenger
+  // Idempotente: si ya está cancelada, retorna sin error
   cancelByPassenger(isPaid = false, policyEligible = true, reason = '') {
-    // Idempotent: if already canceled, just return
+    // Idempotente: si ya está cancelada, solo retornar
     if (this.status === 'canceled_by_passenger') {
       return this;
     }
 
-    // State guard: only pending or accepted can be canceled
+    // Guard de estado: solo pending o accepted pueden ser canceladas
     if (!this.isCancelableByPassenger()) {
       throw new InvalidTransitionError(
         `Cannot cancel booking with status: ${this.status}. Only pending or accepted bookings can be canceled.`,
@@ -185,14 +152,14 @@ class BookingRequest {
       );
     }
 
-    // Transition to canceled state
+    // Transición a estado cancelado
     this.status = 'canceled_by_passenger';
     this.canceledAt = new Date();
-    this.cancellationReason = reason?.trim() || ''; // Store reason for audit
+    this.cancellationReason = reason?.trim() || ''; // Almacenar razón para auditoría
     this.updatedAt = new Date();
 
-    // Set refund flag if booking was paid and policy allows
-    // This flag is checked by refund service (US-4.2) but not exposed in DTOs
+    // Establecer bandera de reembolso si la reserva fue pagada y la política lo permite
+    // Esta bandera es verificada por el servicio de reembolso pero no expuesta en DTOs
     if (isPaid && policyEligible) {
       this.refundNeeded = true;
     }
@@ -200,21 +167,15 @@ class BookingRequest {
     return this;
   }
 
-  /**
-   * Automatically decline this booking (driver canceled trip)
-   * Legal transition: pending → declined_auto
-   * Used when driver cancels entire trip (cascade operation)
-   * 
-   * @throws {InvalidTransitionError} if booking is not pending
-   * @returns {BookingRequest} this instance for chaining
-   */
+  // Rechazar automáticamente esta reserva (conductor canceló viaje): transición legal es pending → declined_auto
+  // Usado cuando el conductor cancela todo el viaje (operación en cascada)
   declineAuto() {
-    // Idempotent: if already declined_auto, just return
+    // Idempotente: si ya está declined_auto, solo retornar
     if (this.status === 'declined_auto') {
       return this;
     }
 
-    // State guard: only pending bookings can be auto-declined
+    // Guard de estado: solo reservas pending pueden ser auto-rechazadas
     if (this.status !== 'pending') {
       throw new InvalidTransitionError(
         `Cannot auto-decline booking with status: ${this.status}. Only pending bookings can be auto-declined.`,
@@ -223,33 +184,25 @@ class BookingRequest {
       );
     }
 
-    // Transition to declined_auto state
+    // Transición a estado declined_auto
     this.status = 'declined_auto';
     this.declinedAt = new Date();
-    this.declinedBy = 'system'; // System-initiated decline
+    this.declinedBy = 'system'; // Rechazo iniciado por sistema
     this.updatedAt = new Date();
 
     return this;
   }
 
-  /**
-   * Cancel this booking by platform (driver canceled trip)
-   * Legal transition: accepted → canceled_by_platform
-   * Used when driver cancels entire trip (cascade operation)
-   * 
-   * For paid bookings: Sets refundNeeded flag (always true for platform cancellations)
-   * 
-   * @param {boolean} isPaid - Whether the booking was paid (determines refundNeeded flag)
-   * @throws {InvalidTransitionError} if booking is not accepted
-   * @returns {BookingRequest} this instance for chaining
-   */
+  // Cancelar esta reserva por plataforma (conductor canceló viaje): transición legal es accepted → canceled_by_platform
+  // Usado cuando el conductor cancela todo el viaje (operación en cascada)
+  // Para reservas pagadas: establece bandera refundNeeded (siempre true para cancelaciones de plataforma)
   cancelByPlatform(isPaid = false) {
-    // Idempotent: if already canceled_by_platform, just return
+    // Idempotente: si ya está canceled_by_platform, solo retornar
     if (this.status === 'canceled_by_platform') {
       return this;
     }
 
-    // State guard: only accepted bookings can be platform-canceled
+    // Guard de estado: solo reservas accepted pueden ser canceladas por plataforma
     if (this.status !== 'accepted') {
       throw new InvalidTransitionError(
         `Cannot platform-cancel booking with status: ${this.status}. Only accepted bookings can be platform-canceled.`,
@@ -258,13 +211,13 @@ class BookingRequest {
       );
     }
 
-    // Transition to canceled_by_platform state
+    // Transición a estado canceled_by_platform
     this.status = 'canceled_by_platform';
     this.canceledAt = new Date();
     this.updatedAt = new Date();
 
-    // Platform cancellations always trigger refunds if booking was paid
-    // (Policy is 100% refund for driver-initiated cancellations)
+    // Las cancelaciones de plataforma siempre activan reembolsos si la reserva fue pagada
+    // (Política es 100% de reembolso para cancelaciones iniciadas por conductor)
     if (isPaid) {
       this.refundNeeded = true;
     }
@@ -272,16 +225,47 @@ class BookingRequest {
     return this;
   }
 
-  /**
-   * Check if passenger owns this booking
-   */
+  // Verificar si el pasajero es dueño de esta reserva
   belongsToPassenger(passengerId) {
     return this.passengerId === passengerId;
   }
 
-  /**
-   * Create a plain object representation (for database persistence)
-   */
+  // Marcar pago como completado
+  markPaymentCompleted(paymentMethod) {
+    this.paymentMethod = paymentMethod;
+    this.paymentStatus = 'completed';
+    this.isPaid = true;
+    this.paidAt = new Date();
+    this.updatedAt = new Date();
+  }
+
+  // Inicializar pago (cuando la reserva es aceptada - el pago se vuelve requerido)
+  // El método de pago se establecerá cuando el pasajero elija cómo pagar
+  initializePayment() {
+    this.paymentStatus = 'pending';
+    this.updatedAt = new Date();
+  }
+
+  // Establecer método de pago (cuando el pasajero elige cómo pagar)
+  setPaymentMethod(paymentMethod, stripePaymentIntentId = null) {
+    this.paymentMethod = paymentMethod;
+    if (stripePaymentIntentId) {
+      this.stripePaymentIntentId = stripePaymentIntentId;
+    }
+    this.updatedAt = new Date();
+  }
+
+  // Verificar si el pago está pendiente
+  hasPendingPayment() {
+    return this.paymentStatus === 'pending';
+  }
+
+  // Verificar si el pago está completado
+  isPaymentCompleted() {
+    return this.paymentStatus === 'completed' && this.isPaid === true;
+  }
+
+  // Crear representación de objeto plano (para persistencia en base de datos)
   toObject() {
     return {
       id: this.id,
@@ -295,8 +279,13 @@ class BookingRequest {
       declinedAt: this.declinedAt,
       declinedBy: this.declinedBy,
       canceledAt: this.canceledAt,
-      cancellationReason: this.cancellationReason, // Audit trail
-      refundNeeded: this.refundNeeded, // Persisted but never exposed in DTOs
+      cancellationReason: this.cancellationReason, // Pista de auditoría
+      refundNeeded: this.refundNeeded, // Persistido pero nunca expuesto en DTOs
+      paymentMethod: this.paymentMethod,
+      paymentStatus: this.paymentStatus,
+      stripePaymentIntentId: this.stripePaymentIntentId,
+      paidAt: this.paidAt,
+      isPaid: this.isPaid,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt
     };

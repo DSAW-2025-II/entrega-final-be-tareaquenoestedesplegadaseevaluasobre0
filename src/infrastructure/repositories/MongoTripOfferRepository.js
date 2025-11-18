@@ -1,19 +1,14 @@
+// Repositorio de ofertas de viaje MongoDB: implementación de TripOfferRepository para MongoDB
 const TripOfferRepository = require('../../domain/repositories/TripOfferRepository');
 const TripOfferModel = require('../database/models/TripOfferModel');
 const TripOffer = require('../../domain/entities/TripOffer');
 
-/**
- * MongoDB implementation of TripOfferRepository
- */
 class MongoTripOfferRepository extends TripOfferRepository {
-  /**
-   * Map Mongoose document to domain entity
-   * @private
-   */
+  // Mapear documento de Mongoose a entidad de dominio
   _toDomain(doc) {
     if (!doc) return null;
 
-    // Helper to safely convert ObjectId to string (handles both Mongoose docs and lean objects)
+    // Helper para convertir ObjectId a string de forma segura (maneja documentos de Mongoose y objetos lean)
     const toStr = (val) => val ? val.toString() : val;
 
     return new TripOffer({
@@ -33,10 +28,7 @@ class MongoTripOfferRepository extends TripOfferRepository {
     });
   }
 
-  /**
-   * Map array of Mongoose documents to domain entities
-   * @private
-   */
+  // Mapear array de documentos de Mongoose a entidades de dominio
   _toDomainArray(docs) {
     return docs.map((doc) => this._toDomain(doc));
   }

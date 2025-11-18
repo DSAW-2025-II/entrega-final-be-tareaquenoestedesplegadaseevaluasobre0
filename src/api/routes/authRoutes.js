@@ -1,3 +1,4 @@
+// Rutas de autenticación: registro, login, logout y sesión actual
 const express = require('express');
 const AuthController = require('../controllers/authController');
 const UserController = require('../controllers/userController');
@@ -12,28 +13,7 @@ const router = express.Router();
 const authController = new AuthController();
 const userController = new UserController();
 
-/**
- * AUTH ROUTES
- * 
- * Endpoints:
- * - POST /auth/register - Register new user
- * - POST /auth/login - Create session (set JWT cookie)
- * - POST /auth/logout - Destroy session (clear cookie)
- * - GET /auth/me - Get current user session/identity (protected)
- * 
- * Security:
- * - Rate limiting (5 login attempts/min/IP)
- * - Generic error messages (no user enumeration)
- * - HttpOnly cookies (XSS protection)
- * - Secure flag in production (HTTPS only)
- * - SameSite cookies (CSRF protection)
- */
-
-/**
- * POST /auth/register - Register new user
- * 
- * Alias for POST /users endpoint for better REST semantics
- */
+// POST /auth/register: registrar nuevo usuario (alias de POST /users para mejor semántica REST)
 router.post(
   '/register',
   publicRateLimiter,

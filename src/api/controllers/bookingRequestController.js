@@ -1,16 +1,13 @@
-/**
- * BookingRequestController
- * 
- * Handles passenger booking request operations.
- * Enforces RBAC (passenger-only) and business rules.
- */
-
+// Controlador de solicitudes de reserva: maneja operaciones de reservas de pasajeros
+// Aplica RBAC (solo pasajeros) y reglas de negocio
 const BookingRequestService = require('../../domain/services/BookingRequestService');
 const MongoBookingRequestRepository = require('../../infrastructure/repositories/MongoBookingRequestRepository');
 const MongoTripOfferRepository = require('../../infrastructure/repositories/MongoTripOfferRepository');
 const CreateBookingRequestDto = require('../../domain/dtos/CreateBookingRequestDto');
 const BookingRequestResponseDto = require('../../domain/dtos/BookingRequestResponseDto');
 const DomainError = require('../../domain/errors/DomainError');
+const PaymentService = require('../../domain/services/PaymentService');
+const Stripe = require('stripe');
 
 class BookingRequestController {
   constructor() {
@@ -20,24 +17,37 @@ class BookingRequestController {
       this.bookingRequestRepository,
       this.tripOfferRepository
     );
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+    this.paymentService = new PaymentService(
+      this.bookingRequestRepository,
+      this.tripOfferRepository,
+      stripe
+    );
   }
 
-  /**
-   * POST /passengers/bookings
-   * Create a new booking request (passenger only)
-   */
+  // POST /passengers/bookings: crear nueva solicitud de reserva (solo pasajeros)
   async createBookingRequest(req, res, next) {
     try {
-      const passengerId = req.user.sub;
+      const passengerId = req.user.id || req.user.sub;
+
+      // Verificar pagos pendientes: bloquear nuevas reservas solo si hay pagos pendientes de viajes completados
+      const pendingPaymentsForCompletedTrips = await this.paymentService.getPendingPaymentsForCompletedTrips(passengerId);
+      if (pendingPaymentsForCompletedTrips.length > 0) {
+        return res.status(403).json({
+          code: 'pending_payments_block',
+          message: 'No puedes crear nuevas reservas hasta que completes los pagos pendientes de viajes que ya finalizaron',
+          correlationId: req.correlationId
+        });
+      }
 
       console.log(
         `[BookingRequestController] Create booking request | passengerId: ${passengerId} | correlationId: ${req.correlationId}`
       );
 
-      // Create DTO from request body
+      // Crear DTO desde body de la petición
       const createDto = CreateBookingRequestDto.fromRequest(req.body);
 
-      // Create booking request via service (includes all invariant checks)
+      // Crear solicitud de reserva mediante servicio (incluye todas las verificaciones de invariantes)
       const bookingRequest = await this.bookingRequestService.createBookingRequest(
         createDto,
         passengerId
@@ -55,7 +65,7 @@ class BookingRequestController {
         `[BookingRequestController] Create failed | passengerId: ${req.user?.sub} | error: ${error.message} | correlationId: ${req.correlationId}`
       );
 
-      // Map domain errors to HTTP responses
+      // Mapear errores de dominio a respuestas HTTP
       if (error instanceof DomainError) {
         switch (error.code) {
           case 'trip_not_found':
@@ -115,7 +125,7 @@ class BookingRequestController {
    */
   async listMyBookingRequests(req, res, next) {
     try {
-      const passengerId = req.user.sub;
+      const passengerId = req.user.id || req.user.sub;
 
       console.log(
         `[BookingRequestController] List booking requests | passengerId: ${passengerId} | correlationId: ${req.correlationId}`

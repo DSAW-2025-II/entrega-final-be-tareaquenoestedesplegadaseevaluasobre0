@@ -1,31 +1,28 @@
 const { v4: uuidv4 } = require('uuid');
 const AuthService = require('../../domain/services/AuthService');
 
-/**
- * Request context middleware
- * - attaches req.id (UUID v4) and response header X-Request-Id
- * - derives actor from access_token cookie when present (best-effort)
- * - for internal paths (cron/webhooks) missing/invalid JWT -> actor: system
- * - ensures req.correlationId falls back to req.id so structured logs and audits share the same id
- */
+// Middleware de contexto de request: adjunta req.id (UUID v4) y header de respuesta X-Request-Id
+// Deriva actor desde cookie access_token cuando está presente (best-effort)
+// Para rutas internas (cron/webhooks) sin JWT válido -> actor: system
+// Asegura que req.correlationId use req.id como fallback para que logs estructurados y auditorías compartan el mismo id
 module.exports = async function requestContext(req, res, next) {
   try {
-    // request id
+    // ID de request
     const id = uuidv4();
     req.id = id;
-    // expose header
+    // Exponer header
     res.setHeader('X-Request-Id', id);
 
-    // Ensure correlationId exists and falls back to request id
+    // Asegurar que correlationId existe y usa request id como fallback
     if (!req.correlationId) req.correlationId = id;
 
-    // Try to derive actor from access_token cookie (best-effort)
+    // Intentar derivar actor desde cookie access_token (best-effort)
     const token = req.cookies && req.cookies.access_token;
     if (token) {
       try {
         const auth = new AuthService();
         const decoded = auth.verifyAccessToken(token);
-        // Map role to actor type
+        // Mapear rol a tipo de actor
         const actorType = (decoded && decoded.role && String(decoded.role).toLowerCase() === 'admin') ? 'admin' : 'user';
         req.actor = {
           type: actorType,
@@ -33,17 +30,17 @@ module.exports = async function requestContext(req, res, next) {
           roles: decoded.role ? [decoded.role] : []
         };
       } catch (err) {
-        // invalid token -> only map to 'system' when request is an internal webhook/cron path
+        // Token inválido -> solo mapear a 'system' cuando el request es ruta interna de webhook/cron
         const path = (req.path || '').toLowerCase();
         if (path.startsWith('/internal') || path.startsWith('/notifications') || path.startsWith('/cron') || path.includes('/webhook')) {
           req.actor = { type: 'system', id: 'system', roles: ['system'] };
         } else {
-          // leave req.actor undefined for anonymous requests
+          // Dejar req.actor undefined para requests anónimos
           req.actor = null;
         }
       }
     } else {
-      // No token present: if internal path, set system actor
+      // No hay token presente: si es ruta interna, establecer actor system
       const path = (req.path || '').toLowerCase();
       if (path.startsWith('/internal') || path.startsWith('/notifications') || path.startsWith('/cron') || path.includes('/webhook')) {
         req.actor = { type: 'system', id: 'system', roles: ['system'] };

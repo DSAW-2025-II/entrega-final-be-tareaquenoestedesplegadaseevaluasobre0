@@ -1,11 +1,4 @@
-/**
- * Passenger Routes
- * 
- * Routes for passenger-specific operations:
- * - Trip search (published trips only)
- * - Booking requests (future subtasks)
- */
-
+// Rutas de pasajero: operaciones específicas para pasajeros (búsqueda de viajes, reservas, reseñas)
 const express = require('express');
 const PassengerTripController = require('../controllers/passengerTripController');
 const BookingRequestController = require('../controllers/bookingRequestController');
@@ -30,24 +23,13 @@ const reviewController = new ReviewController();
 const { reviewIdParamSchema } = require('../validation/reviewSchemas');
 
 /**
+ * GET /passengers/trips/search: buscar viajes publicados con salida futura
  * @openapi
  * /passengers/trips/search:
  *   get:
- *     tags:
- *       - Passenger Trips
- *     summary: Search published trips (Passenger only)
+ *     summary: Search published trips
  *     description: |
- *       Search for available published trips with future departure.
- *       
- *       **Authorization**: Requires valid JWT cookie (any authenticated user, but intended for passengers).
- *       
- *       **Filters**:
- *       - `qOrigin`: Text search in origin (case-insensitive, partial match)
- *       - `qDestination`: Text search in destination (case-insensitive, partial match)
- *       - `fromDate`: Minimum departure date (ISO 8601)
- *       - `toDate`: Maximum departure date (ISO 8601)
- *       - `page`: Page number (default: 1, min: 1)
- *       - `pageSize`: Results per page (default: 10, min: 1, max: 50)
+ *       Search for published trips with future departure times
  *       
  *       **Business Rules**:
  *       - Only returns trips with `status='published'`

@@ -1,8 +1,5 @@
-/**
- * Vehicle Entity
- * Represents a vehicle owned by a driver
- * Enforces one-vehicle-per-driver business rule
- */
+// Entidad de dominio Vehicle: representa vehículo propiedad de un conductor
+// Aplica regla de negocio: un vehículo por conductor
 class Vehicle {
   constructor({
     id,
@@ -28,11 +25,7 @@ class Vehicle {
     this.updatedAt = updatedAt;
   }
 
-  /**
-   * Create Vehicle from MongoDB document
-   * @param {Object} doc - MongoDB document
-   * @returns {Vehicle} - Vehicle entity
-   */
+  // Crear Vehicle desde documento de MongoDB
   static fromDocument(doc) {
     return new Vehicle({
       id: doc._id.toString(),
@@ -48,26 +41,17 @@ class Vehicle {
     });
   }
 
-  /**
-   * Check if vehicle has photos
-   * @returns {boolean} - True if vehicle has photos
-   */
+  // Verificar si el vehículo tiene fotos
   hasPhotos() {
     return !!(this.vehiclePhotoUrl || this.soatPhotoUrl);
   }
 
-  /**
-   * Get vehicle display name
-   * @returns {string} - Formatted vehicle name
-   */
+  // Obtener nombre de visualización del vehículo
   getDisplayName() {
     return `${this.brand} ${this.model}`;
   }
 
-  /**
-   * Check if vehicle is complete (has all required data)
-   * @returns {boolean} - True if vehicle is complete
-   */
+  // Verificar si el vehículo está completo (tiene todos los datos requeridos)
   isComplete() {
     return !!(this.driverId && this.plate && this.brand && this.model && this.capacity);
   }

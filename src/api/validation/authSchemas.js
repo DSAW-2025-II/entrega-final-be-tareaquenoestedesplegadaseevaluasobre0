@@ -1,21 +1,8 @@
-/**
- * Auth Validation Schemas (Joi)
- * 
- * Validates authentication-related requests
- */
-
+// Esquemas de validación de autenticación (Joi): validan peticiones relacionadas con autenticación
 const Joi = require('joi');
 
-/**
- * Login Schema
- * 
- * Fields:
- * - corporateEmail: Valid email format (required)
- * - password: String, min 8 chars (required)
- * 
- * Note: We validate format here, but don't reveal if email exists
- * in the error response (prevents user enumeration)
- */
+// Esquema de login: corporateEmail (email válido requerido), password (mínimo 8 caracteres requerido)
+// Nota: validamos formato aquí pero no revelamos si el email existe en la respuesta de error (previene enumeración de usuarios)
 const loginSchema = Joi.object({
   corporateEmail: Joi.string()
     .email()
@@ -41,14 +28,8 @@ const loginSchema = Joi.object({
   stripUnknown: true
 });
 
-/**
- * Password Reset Request Schema
- * 
- * Fields:
- * - corporateEmail: Valid email format (required)
- * 
- * Security: Always returns generic success, never reveals if email exists
- */
+// Esquema de solicitud de restablecimiento de contraseña: corporateEmail (email válido requerido)
+// Seguridad: siempre retorna éxito genérico, nunca revela si el email existe
 const passwordResetRequestSchema = Joi.object({
   corporateEmail: Joi.string()
     .email()
@@ -65,26 +46,8 @@ const passwordResetRequestSchema = Joi.object({
   stripUnknown: true
 });
 
-/**
- * Password Reset Schema (Token Redemption)
- * 
- * Fields:
- * - token: Base64url string from email link (required)
- * - newPassword: Strong password, min 8 chars (required)
- * 
- * Password Requirements:
- * - Minimum 8 characters
- * - At least one uppercase letter
- * - At least one lowercase letter
- * - At least one number
- * - At least one special character
- * 
- * Error Codes:
- * - 400 invalid_schema: Validation failed
- * - 400 invalid_token: Token not found or invalid format
- * - 410 token_expired: Token has expired
- * - 409 token_used: Token already consumed
- */
+// Esquema de restablecimiento de contraseña (canje de token): token (string base64url requerido), newPassword (contraseña fuerte requerida)
+// Requisitos de contraseña: mínimo 8 caracteres, al menos una mayúscula, una minúscula, un número y un carácter especial
 const passwordResetSchema = Joi.object({
   token: Joi.string()
     .required()
@@ -115,26 +78,9 @@ const passwordResetSchema = Joi.object({
   stripUnknown: true
 });
 
-/**
- * Password Change Schema (In-session)
- * 
- * Fields:
- * - currentPassword: Current password for verification (required)
- * - newPassword: Strong new password, min 8 chars (required)
- * 
- * Password Requirements (newPassword):
- * - Minimum 8 characters
- * - At least one uppercase letter
- * - At least one lowercase letter
- * - At least one number
- * - At least one special character
- * 
- * Error Codes:
- * - 401 invalid_credentials: Current password is incorrect
- * - 400 invalid_schema: Validation failed (weak password)
- * 
- * Note: Requires authentication (JWT cookie)
- */
+// Esquema de cambio de contraseña (en sesión): currentPassword (contraseña actual requerida), newPassword (contraseña fuerte requerida)
+// Requisitos de contraseña: mínimo 8 caracteres, al menos una mayúscula, una minúscula, un número y un carácter especial
+// Nota: requiere autenticación (cookie JWT)
 const passwordChangeSchema = Joi.object({
   currentPassword: Joi.string()
     .required()

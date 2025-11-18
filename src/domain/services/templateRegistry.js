@@ -1,8 +1,6 @@
 /**
- * Template Registry Service
- *
- * Lightweight in-memory registry for notification templates used by admin endpoints.
- * Stores versioned entries per {type, locale} and provides a validator/linter for drafts.
+ * Servicio de registro de plantillas: registro ligero en memoria para plantillas de notificación usadas por endpoints de admin.
+ * Almacena entradas versionadas por {type, locale} y proporciona validador/linter para borradores.
  */
 
 const defaultBundles = {
@@ -16,6 +14,9 @@ const defaultBundles = {
   }
 };
 
+/**
+ * Extrae placeholders (variables) de una plantilla usando sintaxis {{variable}}.
+ */
 function extractPlaceholders(str) {
   if (!str || typeof str !== 'string') return [];
   const re = /{{\s*([a-zA-Z0-9_.]+)\s*}}/g;
@@ -27,6 +28,9 @@ function extractPlaceholders(str) {
   return Array.from(out);
 }
 
+/**
+ * Extrae referencias a partials usando sintaxis {{> partialName}}.
+ */
 function extractPartialRefs(str) {
   if (!str || typeof str !== 'string') return [];
   const re = /{{>\s*([a-zA-Z0-9_.\-]+)\s*}}/g;
@@ -38,6 +42,9 @@ function extractPartialRefs(str) {
   return Array.from(out);
 }
 
+/**
+ * Detecta características HTML inseguras en una plantilla (XSS prevention).
+ */
 function detectUnsafeHtml(str) {
   if (!str || typeof str !== 'string') return [];
   const issues = [];
@@ -51,13 +58,16 @@ function detectUnsafeHtml(str) {
 
 class TemplateRegistry {
   constructor() {
-    // store keyed by `${type}:${locale}`
+    // almacenar indexado por `${type}:${locale}`
     this.store = new Map();
 
-    // seed with nothing by default; admin APIs will validate drafts (no persistence yet)
+    // inicializar sin nada por defecto; APIs de admin validarán borradores (aún no hay persistencia)
     this.bundles = defaultBundles;
   }
 
+  /**
+   * Lista metadatos de todas las plantillas registradas.
+   */
   listMetadata() {
     const items = [];
     for (const value of this.store.values()) {
@@ -66,7 +76,9 @@ class TemplateRegistry {
     return items;
   }
 
-  // Register or update a template entry (not used by validate endpoint, but available)
+  /**
+   * Registra o actualiza una entrada de plantilla (no usado por endpoint validate, pero disponible).
+   */
   upsert(entry) {
     const key = `${entry.type}:${entry.locale}`;
     const now = new Date().toISOString();
@@ -76,9 +88,11 @@ class TemplateRegistry {
     return this.store.get(key);
   }
 
-  // Validate a draft payload. Returns { valid: true, warnings: [] } or throws an error-like object
+  /**
+   * Valida un borrador de plantilla. Retorna { valid: true, warnings: [] } o lanza un objeto tipo error.
+   * draft: { type, locale, subject, html, text, schema, partials }
+   */
   validateDraft(draft) {
-    // draft: { type, locale, subject, html, text, schema, partials }
     const errors = [];
     const warnings = [];
 
@@ -92,36 +106,36 @@ class TemplateRegistry {
       throw { code: 'invalid_payload', message: 'Missing required field: type' };
     }
 
-    // Collect placeholders from subject/html/text and from partials
+    // Recolectar placeholders de subject/html/text y de partials
     const placeholders = new Set();
     extractPlaceholders(subject).forEach(p => placeholders.add(p));
     extractPlaceholders(html).forEach(p => placeholders.add(p));
     extractPlaceholders(text).forEach(p => placeholders.add(p));
     Object.values(partials || {}).forEach(p => extractPlaceholders(p).forEach(v => placeholders.add(v)));
 
-    // Check partial references present
+    // Verificar referencias a partials presentes
     const partialRefs = new Set();
     extractPartialRefs(subject).forEach(p => partialRefs.add(p));
     extractPartialRefs(html).forEach(p => partialRefs.add(p));
     extractPartialRefs(text).forEach(p => partialRefs.add(p));
-    // Ensure each referenced partial exists in partials
+    // Asegurar que cada partial referenciado existe en partials
     for (const pr of partialRefs) {
       if (!partials || typeof partials[pr] !== 'string') {
         throw { code: 'missing_partial', message: `Missing partial: ${pr}` };
       }
     }
 
-    // Validate JSON-Schema 'required' variables exist in placeholders
+    // Validar que variables 'required' del JSON-Schema existen en placeholders
     if (schema && typeof schema === 'object' && Array.isArray(schema.required)) {
       for (const reqVar of schema.required) {
         if (!placeholders.has(reqVar)) {
-          // explicit error per acceptance example
+          // error explícito según ejemplo de aceptación
           throw { code: 'invalid_schema', message: `Missing required variable: ${reqVar}` };
         }
       }
     }
 
-    // Detect unsafe HTML in html and partials
+    // Detectar HTML inseguro en html y partials
     const unsafeInHtml = detectUnsafeHtml(html);
     if (unsafeInHtml.length) {
       throw { code: 'invalid_html', message: `Unsafe HTML features detected: ${unsafeInHtml.join(',')}` };
@@ -133,7 +147,7 @@ class TemplateRegistry {
       }
     }
 
-    // i18n key checks: detect usages like {{t 'key'}} or {{t "key"}}
+    // Verificaciones de claves i18n: detectar usos como {{t 'key'}} o {{t "key"}}
     const i18nRe = /{{\s*t\s+['"]([^'"]+)['"]\s*}}/g;
     function checkI18nIn(str) {
       const keys = [];
@@ -160,7 +174,7 @@ class TemplateRegistry {
       }
     }
 
-    // No blocking issues found
+    // No se encontraron problemas bloqueantes
     return { valid: true, warnings };
   }
 }

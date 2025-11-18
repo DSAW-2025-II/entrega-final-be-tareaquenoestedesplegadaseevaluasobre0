@@ -1,29 +1,8 @@
+// Middleware de autenticación JWT: extrae y verifica token JWT de cookie httpOnly 'access_token'
+// Si es válido, adjunta req.user con información del usuario
 const AuthService = require('../../domain/services/AuthService');
 const UserModel = require('../../infrastructure/database/models/UserModel');
 
-/**
- * Middleware de autenticación JWT
- * 
- * Extrae y verifica el token JWT de la cookie httpOnly 'access_token'.
- * Si es válido, adjunta req.user con la información del usuario.
- * 
- * Contrato de entrada:
- * - Cookie: access_token=<JWT> (httpOnly, Secure, SameSite=Lax)
- * 
- * Contrato de salida (éxito):
- * - req.user = { sub: userId, role: 'passenger'|'driver', email: string, iat, exp }
- * 
- * Errores:
- * - 401 unauthorized: Sin cookie o token inválido
- * - 401 token_expired: Token expirado
- * 
- * Uso:
- * router.get('/users/me', authenticate, controller.getMyProfile);
- * 
- * @param {Object} req - Express request
- * @param {Object} res - Express response
- * @param {Function} next - Next middleware
- */
 const authenticate = (req, res, next) => {
   try {
     // Obtener token de la cookie httpOnly 'access_token'
@@ -37,22 +16,22 @@ const authenticate = (req, res, next) => {
       });
     }
 
-    // Verify token using centralized AuthService
+    // Verificar token usando AuthService centralizado
     const authService = new AuthService();
     const decoded = authService.verifyAccessToken(token);
 
     // Adjuntar información del usuario a req
     // Formato estándar JWT: { sub: userId, role, email, iat, exp, iss, aud }
     req.user = {
-      id: decoded.sub,       // Alias for easier access (req.user.id)
-      sub: decoded.sub,      // Standard JWT claim
+      id: decoded.sub,       // Alias para acceso más fácil (req.user.id)
+      sub: decoded.sub,      // Claim estándar JWT
       role: decoded.role,
       email: decoded.email,
       iat: decoded.iat,
       exp: decoded.exp
     };
 
-    // Check if account is suspended in DB
+    // Verificar si la cuenta está suspendida en la BD
     (async () => {
       try {
         const doc = await UserModel.findById(decoded.sub).select('suspended suspendedAt');
@@ -61,7 +40,7 @@ const authenticate = (req, res, next) => {
         }
         next();
       } catch (err) {
-        // If DB check fails, continue but log
+        // Si la verificación en BD falla, continuar pero loguear
         console.error('[authenticate] Failed to verify user suspension status:', err && err.message);
         next();
       }
@@ -94,28 +73,14 @@ const authenticate = (req, res, next) => {
   }
 };
 
-/**
- * RBAC Middleware - Require specific role(s)
- * 
- * Use after authenticate middleware to enforce role-based access control
- * 
- * @param {string|string[]} allowedRoles - Single role or array of allowed roles
- * @returns {Function} Express middleware
- * 
- * Usage:
- * router.post('/drivers/vehicle', authenticate, requireRole('driver'), controller.createVehicle);
- * router.get('/admin/users', authenticate, requireRole(['admin', 'superadmin']), controller.listUsers);
- * 
- * @param {Object} req - Express request (must have req.user set by authenticate)
- * @param {Object} res - Express response
- * @param {Function} next - Next middleware
- */
+// Middleware RBAC: requiere rol(es) específico(s)
+// Usar después del middleware authenticate para aplicar control de acceso basado en roles
 const requireRole = (allowedRoles) => {
-  // Normalize to array
+  // Normalizar a array
   const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
 
   return (req, res, next) => {
-    // Ensure user is authenticated (should be set by authenticate middleware)
+    // Asegurar que el usuario esté autenticado (debe estar establecido por el middleware authenticate)
     if (!req.user) {
       return res.status(401).json({
         code: 'unauthorized',
@@ -124,7 +89,7 @@ const requireRole = (allowedRoles) => {
       });
     }
 
-    // Check if user's role is in allowed roles
+    // Verificar si el rol del usuario está en los roles permitidos
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         code: 'forbidden',

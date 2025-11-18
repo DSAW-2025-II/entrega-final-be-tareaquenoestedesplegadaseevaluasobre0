@@ -1,24 +1,10 @@
-// Import single source of truth for allow-list validation
+// Importar fuente única de verdad para validación de allow-list
 const { ALLOWED_FIELDS, IMMUTABLE_FIELDS } = require('../../api/middlewares/validateAllowList');
 
-/**
- * DTO para actualización parcial de perfil de usuario
- * 
- * SINGLE SOURCE OF TRUTH: Las listas de campos están definidas en validateAllowList middleware
- * 
- * ALLOW-LIST (campos permitidos):
- * - firstName
- * - lastName
- * - phone
- * - profilePhoto (file upload)
- * 
- * IMMUTABLE (campos prohibidos, generan 403):
- * - corporateEmail
- * - universityId
- * - role
- * - id
- * - password (tiene su propio endpoint)
- */
+// DTO para actualización parcial de perfil de usuario
+// SINGLE SOURCE OF TRUTH: las listas de campos están definidas en validateAllowList middleware
+// ALLOW-LIST (campos permitidos): firstName, lastName, phone, profilePhoto
+// IMMUTABLE (campos prohibidos, generan 403): corporateEmail, universityId, role, id, password
 class UpdateProfileDto {
   constructor({ firstName, lastName, phone, profilePhotoUrl } = {}) {
     this.firstName = firstName;
@@ -27,11 +13,7 @@ class UpdateProfileDto {
     this.profilePhotoUrl = profilePhotoUrl;
   }
 
-  /**
-   * Create DTO from JSON request body
-   * @param {Object} body - Request body
-   * @returns {UpdateProfileDto}
-   */
+  // Crear DTO desde body de request JSON
   static fromRequest(body) {
     return new UpdateProfileDto({
       firstName: body.firstName,
@@ -40,14 +22,7 @@ class UpdateProfileDto {
     });
   }
 
-  /**
-   * Create DTO from multipart/form-data request
-   * Handles both text fields and file upload
-   * 
-   * @param {Object} fields - Form fields from request body
-   * @param {Object} file - Uploaded file from multer (req.file)
-   * @returns {UpdateProfileDto}
-   */
+  // Crear DTO desde request multipart/form-data: maneja campos de texto y carga de archivos
   static fromMultipart(fields, file) {
     const profilePhotoUrl = file ? `/uploads/profiles/${file.filename}` : undefined;
 
@@ -59,13 +34,7 @@ class UpdateProfileDto {
     });
   }
 
-  /**
-   * Check if any immutable fields are present in the request
-   * Uses SINGLE SOURCE OF TRUTH from validateAllowList middleware
-   * 
-   * @param {Object} body - Request body to check
-   * @returns {string|null} - First immutable field found, or null
-   */
+  // Verificar si hay campos inmutables presentes en el request: usa SINGLE SOURCE OF TRUTH de validateAllowList
   static checkImmutableFields(body) {
     for (const field of IMMUTABLE_FIELDS) {
       if (field in body) {

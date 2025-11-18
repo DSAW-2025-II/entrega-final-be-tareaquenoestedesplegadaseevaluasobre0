@@ -1,14 +1,8 @@
-/**
- * Internal Routes
- * 
- * Admin-only endpoints for system operations:
- * - Manual job triggers for QA/testing
- * - System health checks
- * - Maintenance tasks
- * 
- * All routes require JWT authentication and ADMIN role.
- */
-
+// Rutas internas: endpoints solo para admin para operaciones del sistema
+// - Disparadores manuales de jobs para QA/testing
+// - Verificaciones de salud del sistema
+// - Tareas de mantenimiento
+// Todas las rutas requieren autenticación JWT y rol ADMIN
 const express = require('express');
 const router = express.Router();
 
@@ -23,31 +17,13 @@ const { validateTemplateBodySchema } = require('../validation/internalSchemas');
 const templateRegistry = require('../../domain/services/templateRegistry');
 
 /**
- * @route   POST /internal/jobs/run
- * @desc    Manually trigger lifecycle jobs (US-3.4.4)
- * @access  Private (Admin only)
- * @query   {string} name - Job name (complete-trips, auto-complete-trips, expire-pendings)
- * @query   {number} pendingTtlHours - TTL for pending bookings (default: 48, max: 168)
- */
-/**
+ * POST /internal/jobs/run: disparar jobs de ciclo de vida manualmente (solo admin)
  * @openapi
  * /internal/jobs/run:
  *   post:
- *     tags:
- *       - Internal
- *     summary: Run lifecycle jobs manually (Admin only)
+ *     summary: Manually trigger lifecycle jobs
  *     description: |
- *       Manually trigger background jobs for trip/booking lifecycle management.
- *       
- *       **Admin-only**: Requires JWT cookie with role='admin'.
- *       **CSRF Protection**: Required for state-changing operations.
- *       
- *       **Available Jobs**:
- *       - `complete-trips`: Auto-complete trips + expire pending bookings (default)
- *       - `auto-complete-trips`: Only complete trips past arrival time
- *       - `expire-pendings`: Only expire old pending bookings
- *       
- *       **Use Cases**:
+ *       Manually trigger lifecycle jobs for admin use cases:
  *       - QA/testing
  *       - Manual intervention
  *       - Immediate cleanup after config changes

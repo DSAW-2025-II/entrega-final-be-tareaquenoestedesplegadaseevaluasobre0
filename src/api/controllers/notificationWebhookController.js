@@ -1,9 +1,11 @@
+// Controlador de webhooks de notificaciones: maneja eventos de proveedores de email (SendGrid, etc.)
 const emailProvider = require('../../infrastructure/notificationProviders/emailProvider');
 const DeliveryAttempt = require('../../infrastructure/database/models/DeliveryAttemptModel');
 const NotificationDelivery = require('../../infrastructure/database/models/NotificationDeliveryModel');
 const InAppNotification = require('../../infrastructure/database/models/InAppNotificationModel');
 const notificationMetrics = require('../../domain/services/notificationMetrics');
 
+// Enmascarar email para logs
 function redactEmail(email) {
   if (!email || typeof email !== 'string') return null;
   const parts = email.split('@');
@@ -14,10 +16,10 @@ function redactEmail(email) {
   return `${local[0]}***@${domain}`;
 }
 
+// Redactar datos crudos eliminando direcciones de email
 function redactRaw(raw) {
   try {
     const s = typeof raw === 'string' ? raw : JSON.stringify(raw);
-    // remove email addresses
     return s.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[REDACTED]');
   } catch (e) {
     return '[REDACTED]';
@@ -27,8 +29,9 @@ function redactRaw(raw) {
 class NotificationWebhookController {
   constructor() {}
 
+  // POST /notifications/webhooks/email: manejar webhook de eventos de email
   async handleEmailWebhook(req, res) {
-    // Read raw body collected by rawBody middleware
+    // Leer body crudo recolectado por middleware rawBody
     const raw = req.rawBody || (req.body ? JSON.stringify(req.body) : '');
     const sigHeader = req.headers['x-provider-signature'] || req.headers['x-sendgrid-signature'] || req.headers['x-signature'];
 
@@ -40,7 +43,7 @@ class NotificationWebhookController {
       return res.status(400).json({ code: 'invalid_signature', message: 'Webhook signature verification failed' });
     }
 
-    // Normalize
+    // Normalizar
     const providerMessageId = evt.providerMessageId;
     if (!providerMessageId) {
       console.warn('[NotificationWebhook] Missing providerMessageId in payload');

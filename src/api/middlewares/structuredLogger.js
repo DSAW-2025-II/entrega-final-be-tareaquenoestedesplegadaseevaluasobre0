@@ -1,11 +1,5 @@
-/**
- * Structured Logger Middleware
- * Provides structured logging with PII redaction, latency tracking, and correlation IDs
- */
-
-/**
- * Fields that contain PII and should be redacted in logs
- */
+// Middleware de logger estructurado: proporciona logging estructurado con redacción de PII, seguimiento de latencia y correlation IDs
+// Campos que contienen PII y deben ser redactados en logs
 const PII_FIELDS = [
   'password',
   'corporateEmail',
@@ -19,11 +13,7 @@ const PII_FIELDS = [
   'soatPhoto'
 ];
 
-/**
- * Redact PII from an object
- * @param {Object} obj - Object to redact
- * @returns {Object} - Redacted object
- */
+// Redactar PII de un objeto
 function redactPII(obj) {
   if (!obj || typeof obj !== 'object') {
     return obj;
@@ -47,7 +37,7 @@ function redactPII(obj) {
 }
 
 /**
- * Get safe user identifier for logging (no PII)
+ * Obtener identificador seguro de usuario para logging (sin PII)
  * @param {Object} req - Express request
  * @returns {string} - Safe user identifier
  */

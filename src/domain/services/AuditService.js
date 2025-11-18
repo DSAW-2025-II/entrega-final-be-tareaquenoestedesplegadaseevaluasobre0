@@ -1,20 +1,11 @@
+// Servicio de auditoría: registra acciones de administradores en logs de auditoría con cadena de hashes y anclas diarias
+// Usa SHA-256 para hashes y HMAC para anclas diarias incrementales
 const AuditLogModel = require('../../infrastructure/database/models/AuditLogModel');
 const AuditAnchor = require('../../infrastructure/database/models/AuditAnchorModel');
 const crypto = require('crypto');
 
 class AuditService {
-  /**
-   * Record an admin action as an audit log entry.
-   * @param {Object} params
-   * @param {string} params.action
-   * @param {string} params.entity
-   * @param {string|Object} params.entityId
-   * @param {string} params.who - admin user id
-   * @param {Object} params.before
-   * @param {Object} params.after
-   * @param {string} params.why
-   * @param {Object} req - express request (optional, for correlationId/ip/ua)
-   */
+  // Registrar acción de admin como entrada de log de auditoría: crea entrada con hash encadenado y actualiza ancla diaria HMAC
   static async recordAdminAction({ action, entity, entityId = null, who = null, before = {}, after = {}, why = '', req = null }) {
     
 
@@ -33,11 +24,11 @@ class AuditService {
     };
 
     try {
-      // Fetch previous hash (global chain) - best-effort
+      // Obtener hash anterior (cadena global) - mejor esfuerzo
       const prev = await AuditLogModel.findOne({}, { hash: 1 }).sort({ when: -1 }).lean();
       const prevHash = prev && prev.hash ? prev.hash : null;
 
-      // Compute content for hashing (deterministic order)
+      // Calcular contenido para hashing (orden determinístico)
       const toHash = JSON.stringify({ action: entryBase.action, entity: entryBase.entity, entityId: entryBase.entityId, who: entryBase.who, when: entryBase.when.toISOString(), what: entryBase.what, why: entryBase.why, correlationId: entryBase.correlationId, ip: entryBase.ip, userAgent: entryBase.userAgent, prevHash });
       const hash = crypto.createHash('sha256').update(toHash).digest('hex');
 
@@ -45,16 +36,16 @@ class AuditService {
 
       await AuditLogModel.create(entry);
 
-      // Update daily anchor (incremental HMAC): use AUDIT_HMAC_SECRET env var
+      // Actualizar ancla diaria (HMAC incremental): usa variable de entorno AUDIT_HMAC_SECRET
       const secret = process.env.AUDIT_HMAC_SECRET || 'dev_audit_secret';
       const dateKey = when.toISOString().slice(0,10); // YYYY-MM-DD
 
-      // Get existing anchor for the date
+      // Obtener ancla existente para la fecha
       const existing = await AuditAnchor.findOne({ date: dateKey }).lean();
       const prevDaily = existing && existing.hmac ? existing.hmac : '';
       const hmac = crypto.createHmac('sha256', secret).update(prevDaily + hash).digest('hex');
 
-      // Upsert anchor
+      // Upsert ancla
       await AuditAnchor.findOneAndUpdate({ date: dateKey }, { date: dateKey, hmac, updatedAt: new Date(), createdAt: existing ? existing.createdAt : new Date() }, { upsert: true, new: true });
 
     } catch (err) {
@@ -62,12 +53,9 @@ class AuditService {
     }
   }
 
-  /**
-   * Generate daily anchor for given date (YYYY-MM-DD). If not provided, uses today's UTC date.
-   * Anchor algorithm: iterate entries for the date in chronological order and compute running HMAC(secret, prevDaily + hash)
-   * where prevDaily is the stored anchor for the previous day (or empty string if none).
-   * Stores { date, hmac, keyVersion, createdAt, updatedAt }
-   */
+  // Generar ancla diaria para fecha dada (YYYY-MM-DD): si no se proporciona, usa fecha UTC de hoy
+  // Algoritmo de ancla: iterar entradas de la fecha en orden cronológico y calcular HMAC incremental (secret, prevDaily + hash)
+  // donde prevDaily es la ancla almacenada del día anterior (o cadena vacía si no hay)
   static async generateDailyAnchor({ dateKey = null } = {}) {
     const secret = process.env.AUDIT_HMAC_SECRET || 'dev_audit_secret';
     const keyVersion = process.env.AUDIT_HMAC_KEY_VERSION || 'kv1';
@@ -76,12 +64,12 @@ class AuditService {
     const dayStart = new Date(`${day}T00:00:00.000Z`);
     const nextDay = new Date(new Date(dayStart).getTime() + 24*60*60*1000);
 
-    // previous day's anchor (string) used as starting point
+    // Ancla del día anterior (string) usada como punto de partida
     const prevDayDate = new Date(dayStart.getTime() - 24*60*60*1000).toISOString().slice(0,10);
     const prevAnchorDoc = await AuditAnchor.findOne({ date: prevDayDate }).lean();
     let runningDaily = prevAnchorDoc && prevAnchorDoc.hmac ? prevAnchorDoc.hmac : '';
 
-    // Fetch entries for the day ordered by ts asc
+    // Obtener entradas del día ordenadas por ts ascendente
     const cursor = AuditLogModel.find({ ts: { $gte: dayStart, $lt: nextDay } }).sort({ ts: 1 }).cursor();
     let lastHash = null;
     let count = 0;
@@ -89,13 +77,13 @@ class AuditService {
     for await (const doc of cursor) {
       const hash = doc.hash;
       if (!hash) continue;
-      // update running daily hmac
+      // Actualizar HMAC diario incremental
       runningDaily = crypto.createHmac('sha256', secret).update(runningDaily + hash).digest('hex');
       lastHash = hash;
       count += 1;
     }
 
-    // Upsert anchor for the day
+    // Upsert ancla para el día
     const anchorValue = runningDaily;
     const now = new Date();
   await AuditAnchor.findOneAndUpdate({ date: day }, { date: day, hmac: anchorValue, keyVersion, entries: count, updatedAt: now, createdAt: now }, { upsert: true, new: true });
@@ -103,10 +91,8 @@ class AuditService {
   return { day, anchor: `${keyVersion}:${anchorValue}`, entries: count };
   }
 
-  /**
-   * Verify integrity for a date range (inclusive). Returns { verified: boolean, breaks: Array }
-   * Each break is { type: 'hash_mismatch'|'anchor_mismatch'|'missing_anchor', date, id?, detail }
-   */
+  // Verificar integridad para un rango de fechas (inclusivo): retorna { verified: boolean, breaks: Array }
+  // Cada break es { type: 'hash_mismatch'|'anchor_mismatch'|'missing_anchor', date, id?, detail }
   static async verifyIntegrity({ from, to }) {
     const secret = process.env.AUDIT_HMAC_SECRET || 'dev_audit_secret';
 

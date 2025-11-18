@@ -1,3 +1,4 @@
+// Entidad de dominio User: representa usuario del sistema con información personal y credenciales
 class User {
     constructor({
         id, firstName, lastName, universityId, corporateEmail, phone, password, role, profilePhoto = null, createdAt, updatedAt
@@ -15,7 +16,7 @@ class User {
         this.updatedAt = updatedAt;
     }
 
-    //Método para mapear desde un documento de MongoDB:
+    // Mapear desde documento de MongoDB
     static fromDocument(doc) {
         return new User({
             id: doc._id.toString(),
@@ -32,12 +33,12 @@ class User {
         });
     }
 
-    //Método para verificar si es un conductor:
+    // Verificar si es conductor
     isDriver() {
         return this.role === 'driver';
     }
 
-    //Método para verificar si es un pasajero:
+    // Verificar si es pasajero
     isPassenger() {
         return this.role === 'passenger';
     }

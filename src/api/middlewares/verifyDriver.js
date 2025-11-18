@@ -1,9 +1,7 @@
+// Middleware para asegurar que el perfil del conductor esté verificado antes de permitir ciertas acciones
+// (ej: publicar viajes)
 const DriverVerification = require('../../infrastructure/database/models/DriverVerificationModel');
 
-/**
- * Middleware to ensure driver profile is verified before allowing certain actions
- * (e.g., publishing trips).
- */
 module.exports = async function requireDriverVerified(req, res, next) {
   try {
     const userId = (req.user && (req.user.sub || req.user.id)) || null;
@@ -15,7 +13,7 @@ module.exports = async function requireDriverVerified(req, res, next) {
 
     const profile = await DriverVerification.findOne({ userId });
 
-    // If no profile or not verified, reject with actionable message
+    // Si no hay perfil o no está verificado, rechazar con mensaje accionable
     if (!profile || profile.status !== 'verified') {
       let message = 'Your driver verification is not complete. Please submit required documents to publish trips.';
       if (profile && profile.status === 'expired') {

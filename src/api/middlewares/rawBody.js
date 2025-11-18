@@ -1,40 +1,20 @@
-/**
- * Raw Body Middleware (US-4.1.3)
- * 
- * Preserves raw request body for webhook signature verification.
- * Must be applied BEFORE express.json() middleware.
- * 
- * Stripe (and other providers) require the raw body to verify
- * the webhook signature. Once express.json() parses the body,
- * the raw buffer is lost.
- */
-
-/**
- * Attach raw body to request for webhook signature verification
- * 
- * Usage:
- * app.use('/webhooks', rawBodyMiddleware);
- * app.use(express.json());
- * 
- * @param {Request} req - Express request
- * @param {Response} res - Express response
- * @param {Function} next - Next middleware
- */
+// Middleware de body crudo: preserva body crudo de request para verificación de firma de webhooks
+// Debe aplicarse ANTES del middleware express.json()
+// Stripe (y otros proveedores) requieren el body crudo para verificar la firma del webhook
 function rawBodyMiddleware(req, res, next) {
-  // Only collect raw body for webhook endpoints.
-  // Use originalUrl so middleware works when mounted on routers (req.path may be relative).
+  // Solo recolectar body crudo para endpoints de webhook
+  // Usar originalUrl para que el middleware funcione cuando se monta en routers (req.path puede ser relativo)
   const urlToCheck = req.originalUrl || req.url || '';
   if (urlToCheck.includes('/webhook')) {
-    let data = '';
-
-    req.setEncoding('utf8');
+    const chunks = [];
 
     req.on('data', (chunk) => {
-      data += chunk;
+      chunks.push(chunk);
     });
 
     req.on('end', () => {
-      req.rawBody = data;
+      // Almacenar como Buffer para verificación de firma de Stripe
+      req.rawBody = Buffer.concat(chunks);
       next();
     });
   } else {

@@ -1,21 +1,11 @@
-/**
- * CancelBookingRequestDto
- * 
- * Data Transfer Object for passenger-initiated booking cancellation.
- * Supports optional reason for audit trail.
- * 
- * Used in: POST /passengers/bookings/:bookingId/cancel (US-3.4.3)
- */
-
+// DTO de cancelación de solicitud de reserva: objeto de transferencia de datos para cancelación de reserva iniciada por pasajero
+// Soporta razón opcional para pista de auditoría
 class CancelBookingRequestDto {
   constructor({ reason = '' }) {
     this.reason = reason?.trim() || '';
   }
 
-  /**
-   * Validate cancellation request
-   * @returns {string[]} Array of error messages (empty if valid)
-   */
+  // Validar solicitud de cancelación: retorna array de mensajes de error (vacío si es válido)
   validate() {
     const errors = [];
 
@@ -26,11 +16,7 @@ class CancelBookingRequestDto {
     return errors;
   }
 
-  /**
-   * Create DTO from request body
-   * @param {Object} body - Request body
-   * @returns {CancelBookingRequestDto}
-   */
+  // Crear DTO desde body de request
   static fromRequest(body = {}) {
     return new CancelBookingRequestDto({
       reason: body.reason

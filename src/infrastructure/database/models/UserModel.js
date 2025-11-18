@@ -1,6 +1,7 @@
+// Modelo de usuario: schema de Mongoose para usuarios del sistema
+// Campos: información personal, credenciales, rol (passenger/driver), suspensión, ban de publicación
 const mongoose = require('mongoose');
 
-// Definir el schema de User
 const userSchema = new mongoose.Schema({
   firstName: {
     type: String,
@@ -51,7 +52,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  // Suspension fields for admin actions (US-8.2.1)
+  // Campos de suspensión para acciones de admin
   suspended: {
     type: Boolean,
     default: false,
@@ -72,7 +73,7 @@ const userSchema = new mongoose.Schema({
     maxlength: [500, 'Suspension reason cannot exceed 500 characters'],
     default: ''
   },
-  // Temporary publish ban fields (US-8.2.4)
+  // Campos de ban temporal de publicación
   publishBanUntil: {
     type: Date,
     default: null,

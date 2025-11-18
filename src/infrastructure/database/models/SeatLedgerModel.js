@@ -1,18 +1,16 @@
 /**
- * SeatLedger Mongoose Model
+ * Modelo de libro de asientos: rastrea asientos asignados por viaje para hacer cumplir restricciones de capacidad.
+ * Previene sobreventa mediante operaciones atómicas.
  * 
- * Tracks allocated seats per trip to enforce capacity constraints.
- * Prevents overbooking through atomic operations.
+ * Reglas de negocio:
+ * - Una entrada de libro por viaje (tripId único)
+ * - allocatedSeats nunca debe exceder totalSeats del viaje
+ * - Todas las actualizaciones deben ser atómicas (usando findOneAndUpdate con condiciones)
+ * - Se crea en la primera aceptación, se actualiza en aceptaciones subsecuentes
  * 
- * Business Rules:
- * - One ledger entry per trip (unique tripId)
- * - allocatedSeats must never exceed trip's totalSeats
- * - All updates must be atomic (using findOneAndUpdate with conditions)
- * - Created on first accept, updated on subsequent accepts
- * 
- * Race Safety:
- * - Uses MongoDB's findOneAndUpdate with conditional guards
- * - Ensures exactly one success when multiple concurrent accepts compete for last seat
+ * Seguridad ante condiciones de carrera:
+ * - Usa findOneAndUpdate de MongoDB con guardas condicionales
+ * - Garantiza exactamente un éxito cuando múltiples aceptaciones concurrentes compiten por el último asiento
  */
 
 const mongoose = require('mongoose');
@@ -37,7 +35,7 @@ const seatLedgerSchema = new mongoose.Schema(
     }
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt
+    timestamps: true, // Agrega createdAt y updatedAt automáticamente
     collection: 'seat_ledgers'
   }
 );
@@ -47,10 +45,10 @@ const seatLedgerSchema = new mongoose.Schema(
 // ============================================
 
 /**
- * Unique index on tripId ensures one ledger per trip
- * Critical for preventing duplicate ledger entries
- * NOTE: Index is already created by the "unique: true" in schema definition above
- * No need for explicit schema.index() call to avoid duplicate index warning
+ * Índice único en tripId garantiza un libro por viaje.
+ * Crítico para prevenir entradas duplicadas de libro.
+ * NOTA: El índice ya se crea por "unique: true" en la definición del schema arriba.
+ * No es necesario llamar explícitamente schema.index() para evitar advertencia de índice duplicado.
  */
 
 // ============================================
@@ -58,19 +56,19 @@ const seatLedgerSchema = new mongoose.Schema(
 // ============================================
 
 /**
- * Check if there's capacity to allocate more seats
- * @param {number} totalSeats - Total seats available on the trip
- * @param {number} requestedSeats - Number of seats to allocate
- * @returns {boolean} True if allocation is possible
+ * Verifica si hay capacidad para asignar más asientos.
+ * @param {number} totalSeats - Total de asientos disponibles en el viaje
+ * @param {number} requestedSeats - Número de asientos a asignar
+ * @returns {boolean} True si la asignación es posible
  */
 seatLedgerSchema.methods.hasCapacity = function (totalSeats, requestedSeats = 1) {
   return this.allocatedSeats + requestedSeats <= totalSeats;
 };
 
 /**
- * Get remaining available seats
- * @param {number} totalSeats - Total seats available on the trip
- * @returns {number} Number of remaining seats
+ * Obtiene asientos disponibles restantes.
+ * @param {number} totalSeats - Total de asientos disponibles en el viaje
+ * @returns {number} Número de asientos restantes
  */
 seatLedgerSchema.methods.getRemainingSeats = function (totalSeats) {
   return Math.max(0, totalSeats - this.allocatedSeats);
@@ -81,24 +79,24 @@ seatLedgerSchema.methods.getRemainingSeats = function (totalSeats) {
 // ============================================
 
 /**
- * Atomically increment allocated seats for a trip
- * Race-safe: uses findOneAndUpdate with conditional guards
+ * Incrementa atómicamente los asientos asignados para un viaje.
+ * Seguro ante condiciones de carrera: usa findOneAndUpdate con guardas condicionales.
  * 
- * @param {string} tripId - Trip ObjectId
- * @param {number} totalSeats - Total seats available on trip
- * @param {number} seatsToAllocate - Number of seats to allocate (default 1)
- * @returns {Promise<Document|null>} Updated ledger or null if capacity exceeded
+ * @param {string} tripId - ObjectId del viaje
+ * @param {number} totalSeats - Total de asientos disponibles en el viaje
+ * @param {number} seatsToAllocate - Número de asientos a asignar (por defecto 1)
+ * @returns {Promise<Document|null>} Libro actualizado o null si se excedió la capacidad
  */
 seatLedgerSchema.statics.allocateSeats = async function (
   tripId,
   totalSeats,
   seatsToAllocate = 1
 ) {
-  // Step 1: Try to find existing ledger
+  // Paso 1: Intentar encontrar libro existente
   let ledger = await this.findOne({ tripId });
 
   if (!ledger) {
-    // No ledger exists - create one if we have capacity
+    // No existe libro - crear uno si tenemos capacidad
     if (seatsToAllocate <= totalSeats) {
       try {
         ledger = await this.create({
@@ -107,43 +105,43 @@ seatLedgerSchema.statics.allocateSeats = async function (
         });
         return ledger;
       } catch (error) {
-        // If duplicate key error (race condition), retry the update
+        // Si error de clave duplicada (condición de carrera), reintentar la actualización
         if (error.code === 11000) {
           ledger = await this.findOne({ tripId });
-          // Fall through to the update logic below
+          // Continuar con la lógica de actualización abajo
         } else {
           throw error;
         }
       }
     } else {
-      // Requested seats exceed total capacity
+      // Los asientos solicitados exceden la capacidad total
       return null;
     }
   }
 
-  // Step 2: Ledger exists - atomic increment with capacity guard
+  // Paso 2: El libro existe - incremento atómico con guarda de capacidad
   const updatedLedger = await this.findOneAndUpdate(
     {
       tripId,
-      allocatedSeats: { $lte: totalSeats - seatsToAllocate } // Guard: ensure capacity
+      allocatedSeats: { $lte: totalSeats - seatsToAllocate } // Guarda: asegurar capacidad
     },
     {
       $inc: { allocatedSeats: seatsToAllocate }
     },
     {
-      new: true, // Return updated document
+      new: true, // Retornar documento actualizado
       runValidators: true
     }
   );
 
-  // If updatedLedger is null, it means capacity guard failed
+  // Si updatedLedger es null, significa que la guarda de capacidad falló
   return updatedLedger;
 };
 
 /**
- * Get current ledger for a trip (create if doesn't exist)
- * @param {string} tripId - Trip ObjectId
- * @returns {Promise<Document>} Ledger document
+ * Obtiene el libro actual para un viaje (lo crea si no existe).
+ * @param {string} tripId - ObjectId del viaje
+ * @returns {Promise<Document>} Documento del libro
  */
 seatLedgerSchema.statics.getOrCreateLedger = async function (tripId) {
   const ledger = await this.findOneAndUpdate(
@@ -160,9 +158,9 @@ seatLedgerSchema.statics.getOrCreateLedger = async function (tripId) {
 };
 
 /**
- * Get ledger for a trip (returns null if doesn't exist)
- * @param {string} tripId - Trip ObjectId
- * @returns {Promise<Document|null>} Ledger document or null
+ * Obtiene el libro para un viaje (retorna null si no existe).
+ * @param {string} tripId - ObjectId del viaje
+ * @returns {Promise<Document|null>} Documento del libro o null
  */
 seatLedgerSchema.statics.getLedgerByTripId = async function (tripId) {
   return this.findOne({ tripId });

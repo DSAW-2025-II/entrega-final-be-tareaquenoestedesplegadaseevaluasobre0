@@ -1,3 +1,4 @@
+// Servicio de dominio de ofertas de viaje: lógica de negocio para gestión de ofertas con invariantes de propiedad y temporales
 const TripOffer = require('../entities/TripOffer');
 const CreateTripOfferDto = require('../dtos/CreateTripOfferDto');
 const UpdateTripOfferDto = require('../dtos/UpdateTripOfferDto');
@@ -5,10 +6,6 @@ const ValidationError = require('../errors/ValidationError');
 const DomainError = require('../errors/DomainError');
 const InvalidTransitionError = require('../errors/InvalidTransitionError');
 
-/**
- * Trip Offer Service
- * Business logic for trip offer management with ownership and temporal invariants
- */
 class TripOfferService {
   constructor(tripOfferRepository, vehicleRepository, userRepository) {
     this.tripOfferRepository = tripOfferRepository;
@@ -16,18 +13,15 @@ class TripOfferService {
     this.userRepository = userRepository;
   }
 
-  /**
-   * Create a new trip offer
-   * Validates driver-vehicle ownership, temporal constraints, and optional overlap check
-   */
+  // Crear nueva oferta de viaje: valida propiedad conductor-vehículo, restricciones temporales y verificación opcional de solapamiento
   async createTripOffer(driverId, createDto, { checkOverlap = true } = {}) {
-    // Validate DTO
+    // Validar DTO
     const dtoErrors = createDto.validate();
     if (dtoErrors.length > 0) {
       throw new ValidationError(`Invalid trip offer data: ${dtoErrors.join(', ')}`);
     }
 
-    // Validate driver exists and has role 'driver'
+    // Validar que el conductor existe y tiene rol 'driver'
     const driver = await this.userRepository.findById(driverId);
     if (!driver) {
       throw new DomainError('Driver not found', 'driver_not_found');
@@ -37,7 +31,7 @@ class TripOfferService {
       throw new DomainError('User is not a driver', 'not_a_driver');
     }
 
-    // Validate vehicle exists and is owned by the driver
+    // Validar que el vehículo existe y pertenece al conductor
     const vehicle = await this.vehicleRepository.findById(createDto.vehicleId);
     if (!vehicle) {
       throw new DomainError('Vehicle not found', 'vehicle_not_found');
@@ -50,7 +44,7 @@ class TripOfferService {
       );
     }
 
-    // Validate totalSeats does not exceed vehicle capacity
+    // Validar que totalSeats no exceda la capacidad del vehículo
     if (createDto.totalSeats > vehicle.capacity) {
       throw new DomainError(
         `totalSeats (${createDto.totalSeats}) exceeds vehicle capacity (${vehicle.capacity})`,
@@ -58,16 +52,16 @@ class TripOfferService {
       );
     }
 
-    // Parse dates
+    // Parsear fechas
     const departureAt = new Date(createDto.departureAt);
     const estimatedArrivalAt = new Date(createDto.estimatedArrivalAt);
 
-    // Validate departureAt is in the future (only for published trips)
+    // Validar que departureAt esté en el futuro (solo para viajes publicados)
     if (createDto.status === 'published' && departureAt <= new Date()) {
       throw new DomainError('departureAt must be in the future', 'departure_in_past');
     }
 
-    // Validate estimatedArrivalAt > departureAt
+    // Validar que estimatedArrivalAt > departureAt
     if (estimatedArrivalAt <= departureAt) {
       throw new DomainError(
         'estimatedArrivalAt must be after departureAt',
@@ -75,7 +69,7 @@ class TripOfferService {
       );
     }
 
-    // Optional: Check for overlapping published trips
+    // Opcional: verificar viajes publicados solapados
     if (checkOverlap && createDto.status === 'published') {
       const overlappingTrips = await this.tripOfferRepository.findOverlappingTrips(
         driverId,

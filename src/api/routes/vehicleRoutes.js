@@ -1,3 +1,5 @@
+// Rutas de vehículos: gestión de vehículos de conductores
+// Todas las rutas requieren autenticación + rol de conductor (RBAC)
 const express = require('express');
 const VehicleController = require('../controllers/vehicleController');
 const validateRequest = require('../middlewares/validateRequest');
@@ -11,40 +13,15 @@ const requireCsrf = require('../middlewares/requireCsrf');
 const router = express.Router();
 const vehicleController = new VehicleController();
 
-/**
- * Vehicle Routes
- * All routes require authentication + driver role (RBAC)
- * Protected by authenticate + requireRole('driver') middlewares
- */
-
-/**
- * POST /api/drivers/vehicle
- * Create a new vehicle for the authenticated driver
- * Supports multipart/form-data with vehiclePhoto and soatPhoto
- * Enforces one-vehicle-per-driver rule and prevents duplicate plates
- * 
- * Request (multipart/form-data):
- * - plate: string (required) - Format: ABC123
- * - brand: string (required) - Min 2, Max 60 chars
- * - model: string (required) - Min 1, Max 60 chars
- * - capacity: number (required) - Min 1, Max 20
- * - vehiclePhoto: file (optional) - Image up to 5MB
- * - soatPhoto: file (optional) - Image up to 5MB
- * - driverId: string (temporary, for testing without auth)
- * 
- * Responses:
- * - 201: Vehicle created successfully
- * - 400: Validation error (invalid_schema)
- * - 401: Unauthorized (not authenticated)
- * - 409: Conflict (one_vehicle_rule or duplicate_plate)
- * - 413: File too large (payload_too_large)
- */
+// POST /api/drivers/vehicle: crear nuevo vehículo para el conductor autenticado
+// Soporta multipart/form-data con vehiclePhoto y soatPhoto
+// Aplica regla de un vehículo por conductor y previene placas duplicadas
 router.post(
   '/vehicle',
   generalRateLimiter,
-  authenticate,                // Verify JWT cookie
-  requireRole('driver'),       // Enforce driver role (RBAC)
-  requireCsrf,                 // CSRF protection for state-changing route
+  authenticate,
+  requireRole('driver'),
+  requireCsrf,
   vehicleUpload.fields([
     { name: 'vehiclePhoto', maxCount: 1 },
     { name: 'soatPhoto', maxCount: 1 }

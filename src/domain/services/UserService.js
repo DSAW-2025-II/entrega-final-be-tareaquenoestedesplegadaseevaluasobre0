@@ -1,3 +1,4 @@
+// Servicio de dominio de usuarios: lógica de negocio para gestión de usuarios
 const MongoUserRepository = require('../../infrastructure/repositories/MongoUserRepository');
 const MongoVehicleRepository = require('../../infrastructure/repositories/MongoVehicleRepository');
 const CreateUserDto = require('../dtos/CreateUserDto');
@@ -14,6 +15,7 @@ class UserService {
     this.vehicleRepository = new MongoVehicleRepository();
   }
 
+  // Registrar nuevo usuario: verifica duplicados, hashea contraseña y crea usuario
   async registerUser(userData, file = null) {
     try {
       // Verificar duplicados antes de subir archivo
@@ -33,7 +35,7 @@ class UserService {
         });
       }
 
-      // Hash password
+      // Hashear contraseña
       const passwordHash = await bcrypt.hash(userData.password, 10);
 
       // Preparar datos del usuario
@@ -53,7 +55,7 @@ class UserService {
       return UserResponseDto.fromEntity(user);
 
     } catch (error) {
-      // Cleanup file on error if it was uploaded
+      // Limpiar archivo en caso de error si fue subido
       if (file && file.path) {
         const fs = require('fs').promises;
         try {

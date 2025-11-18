@@ -1,10 +1,11 @@
+// Controlador de notificaciones: maneja listado y marcado de notificaciones como leídas
 const InAppNotification = require('../../infrastructure/database/models/InAppNotificationModel');
 const Joi = require('joi');
 
 class NotificationController {
   constructor() {}
 
-  // GET /notifications
+  // GET /notifications: listar notificaciones del usuario con paginación
   async list(req, res) {
     try {
       const schema = Joi.object({
@@ -33,7 +34,7 @@ class NotificationController {
         .limit(pageSize)
         .lean();
 
-      // Shape response
+      // Formatear respuesta
       const shaped = items.map(i => ({
         id: i._id.toString(),
         type: i.type,
@@ -51,7 +52,7 @@ class NotificationController {
     }
   }
 
-  // PATCH /notifications/read
+  // PATCH /notifications/read: marcar notificaciones como leídas
   async markRead(req, res) {
     try {
       const schema = Joi.object({ ids: Joi.array().items(Joi.string().required()).required() });
@@ -63,13 +64,13 @@ class NotificationController {
 
       const ids = value.ids;
 
-      // Update only notifications owned by the caller and not already read
+      // Actualizar solo notificaciones del usuario y que no estén ya leídas
       const result = await InAppNotification.updateMany(
         { _id: { $in: ids }, userId: req.user.id, isRead: false },
         { $set: { isRead: true } }
       );
 
-      // Mongoose 6+ returns modifiedCount
+      // Mongoose 6+ retorna modifiedCount
       const updated = result.modifiedCount != null ? result.modifiedCount : (result.nModified || 0);
 
       return res.json({ updated });

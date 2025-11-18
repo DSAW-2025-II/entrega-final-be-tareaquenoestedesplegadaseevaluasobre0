@@ -1,3 +1,4 @@
+// DTO de creación de usuario: objeto de transferencia de datos para crear nuevo usuario
 class CreateUserDto {
   constructor({ 
     firstName, 

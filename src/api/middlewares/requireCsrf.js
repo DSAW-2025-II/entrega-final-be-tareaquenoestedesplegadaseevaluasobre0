@@ -1,53 +1,33 @@
-/**
- * CSRF Protection Middleware
- * 
- * Double-submit cookie pattern for state-changing requests
- * 
- * How it works:
- * 1. Client reads csrf_token from cookie (non-httpOnly)
- * 2. Client sends token in X-CSRF-Token header
- * 3. Middleware compares cookie vs header
- * 4. If they match, request is from same origin
- * 
- * Usage:
- * router.patch('/users/me', authenticate, requireCsrf, controller.update);
- * router.post('/drivers/vehicle', authenticate, requireCsrf, controller.create);
- */
-
+// Middleware de protección CSRF: patrón double-submit cookie para peticiones que cambian estado
+// 1. Cliente lee csrf_token de cookie (no-httpOnly)
+// 2. Cliente envía token en header X-CSRF-Token
+// 3. Middleware compara cookie vs header
+// 4. Si coinciden, la petición es del mismo origen
 const { validateCsrfToken } = require('../../utils/csrf');
 
-/**
- * Require CSRF token for state-changing requests
- * 
- * @param {Object} req - Express request
- * @param {Object} res - Express response
- * @param {Function} next - Next middleware
- * 
- * Errors:
- * - 403 csrf_mismatch: Token missing or doesn't match
- */
+// Requerir token CSRF para peticiones que cambian estado
 const requireCsrf = (req, res, next) => {
-  // Check if CSRF protection is enabled
+  // Verificar si la protección CSRF está habilitada
   const csrfEnabled = process.env.CSRF_PROTECTION !== 'false';
   
   if (!csrfEnabled) {
-    // CSRF protection disabled (e.g., pure SameSite=Strict environment)
+    // Protección CSRF deshabilitada (ej: entorno con SameSite=Strict puro)
     console.log('[requireCsrf] CSRF protection disabled by config');
     return next();
   }
 
-  // Get CSRF token from cookie
+  // Obtener token CSRF de cookie
   const cookieToken = req.cookies?.csrf_token;
   
-  // Get CSRF token from header
+  // Obtener token CSRF de header
   const headerToken = req.headers['x-csrf-token'] || req.headers['X-CSRF-Token'];
 
-  // In test environment, allow header-only tokens to simplify integration tests
-  // (tests don't always set the csrf_token cookie; header is still required)
+  // En entorno de pruebas, permitir tokens solo en header para simplificar tests de integración
+  // (los tests no siempre establecen la cookie csrf_token; el header aún es requerido)
   if (process.env.NODE_ENV === 'test' && !cookieToken && headerToken) {
     return next();
   }
-  // Validate tokens
+  // Validar tokens
   if (!validateCsrfToken(cookieToken, headerToken)) {
     console.log(`[requireCsrf] CSRF validation failed | IP: ${req.ip} | correlationId: ${req.correlationId}`);
     
@@ -58,7 +38,7 @@ const requireCsrf = (req, res, next) => {
     });
   }
 
-  // Tokens match, proceed
+  // Los tokens coinciden, continuar
   next();
 };
 

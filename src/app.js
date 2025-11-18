@@ -1,3 +1,4 @@
+// Configuración principal del servidor Express: middlewares y rutas
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -14,7 +15,7 @@ const { serveSwagger } = require('./api/middlewares/swagger');
 const { structuredLogger } = require('./api/middlewares/structuredLogger');
 const auditMiddleware = require('./api/middlewares/auditMiddleware');
 
-// Rutas
+// Rutas de la API
 const userRoutes = require('./api/routes/userRoutes');
 const authRoutes = require('./api/routes/authRoutes');
 const vehicleRoutes = require('./api/routes/vehicleRoutes');
@@ -22,11 +23,12 @@ const notificationWebhookRoutes = require('./api/routes/notificationWebhookRoute
 
 const app = express();
 
-// Trust proxy para rate limiting y IPs reales
+// Confiar en proxy reverso (necesario para rate limiting y obtener IPs reales)
 app.set('trust proxy', 1);
 
-// Global middlewares
-// Configure Helmet to allow images and cross-origin resources
+// Middlewares globales
+
+// Helmet: seguridad HTTP (headers de seguridad)
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginEmbedderPolicy: false,
@@ -40,41 +42,47 @@ app.use(helmet({
   },
 }));
 
-// CORS Configuration for JWT cookies and credentials
-// Allows cross-origin requests with credentials (cookies)
+// CORS: permitir peticiones desde el frontend (otro puerto)
 const allowedOrigins = process.env.CORS_ORIGINS 
   ? (process.env.CORS_ORIGINS === '*' ? '*' : process.env.CORS_ORIGINS.split(',').map(origin => origin.trim()))
   : ['http://localhost:5173'];
 
 app.use(cors({
   origin: allowedOrigins === '*' ? true : allowedOrigins,
-  credentials: true, // CRITICAL: Allow cookies in cross-origin requests
+  credentials: true, // CRÍTICO: permite cookies (necesario para JWT)
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS', 'PUT'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
   exposedHeaders: ['Set-Cookie'],
-  maxAge: 86400 // 24 hours preflight cache
+  maxAge: 86400 // Cache preflight 24h
 }));
 
-app.use(morgan('combined'));
-app.use(cookieParser());
-app.use(correlationId);
-// Add request context (request id, actor resolution) before structured logging so logs include actor/correlation
-app.use(requestContext);
-app.use(structuredLogger); // Structured logging with PII redaction
-app.use(auditMiddleware);
-app.use(generalRateLimiter);
+app.use(morgan('combined')); // Logging HTTP
+app.use(cookieParser()); // Parsear cookies en req.cookies
+app.use(correlationId); // Generar ID único por petición
+app.use(requestContext); // Agregar contexto (actor, correlación)
+app.use(structuredLogger); // Logging estructurado con redacción de PII
+app.use(auditMiddleware); // Auditoría de acciones importantes
+app.use(generalRateLimiter); // Limitar peticiones por IP
 
-// Mount email notification webhooks BEFORE body parsing so raw body is available
+// Webhooks: montar ANTES del parsing del body (necesitan body crudo para verificar firmas)
 app.use('/notifications/webhooks', notificationWebhookRoutes);
 
-// Body parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+const rawBodyMiddleware = require('./api/middlewares/rawBody');
+app.use(rawBodyMiddleware); // Guarda body crudo en req.rawBody
 
-// Static files - serve uploaded files with CORS headers
+const paymentWebhookRoutes = require('./api/routes/paymentWebhookRoutes');
+app.use('/api', paymentWebhookRoutes);
+
+// Parsing del body: después de los webhooks
+app.use(express.json({ limit: '10mb' })); // Parsear JSON
+app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parsear form-urlencoded
+
+const paymentRoutes = require('./api/routes/paymentRoutes');
+app.use('/api', paymentRoutes);
+
+// Archivos estáticos: servir uploads con headers CORS
 const uploadDir = process.env.UPLOAD_DIR || 'uploads';
 app.use('/uploads', (req, res, next) => {
-  // Set CORS headers for static files
   const origin = req.headers.origin;
   const isAllowedOrigin = process.env.CORS_ORIGINS === '*' || 
     (Array.isArray(allowedOrigins) && origin && allowedOrigins.includes(origin));
@@ -83,12 +91,11 @@ app.use('/uploads', (req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', origin || '*');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
-  // Allow images to be loaded cross-origin (required for <img> tags)
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); // Permitir imágenes cross-origin
   next();
 }, express.static(path.join(__dirname, '..', uploadDir)));
 
-// Health check
+// Health check: endpoint para verificar que el servidor está funcionando
 app.get('/health', (req, res) => {
   res.json({
     status: 'OK',
@@ -97,7 +104,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Debug middleware to log ALL incoming requests (before routes)
+// Debug: logging temporal para debugging de rutas
 app.use((req, res, next) => {
   if (req.path.includes('/api/users') && req.path.includes('/public')) {
     console.log(`[app.js] DEBUG: Request received | method: ${req.method} | path: ${req.path} | originalUrl: ${req.originalUrl} | url: ${req.url}`);
@@ -105,7 +112,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// API Routes
+// Rutas de la API
 const tripOfferRoutes = require('./api/routes/tripOfferRoutes');
 const passengerRoutes = require('./api/routes/passengerRoutes');
 const driverRoutes = require('./api/routes/driverRoutes');
@@ -114,35 +121,29 @@ const notificationRoutes = require('./api/routes/notificationRoutes');
 const reviewRoutes = require('./api/routes/reviewRoutes');
 const userReportRoutes = require('./api/routes/userReportRoutes');
 const adminRoutes = require('./api/routes/adminRoutes');
-// Mount userReportRoutes and userRoutes
-// Note: Express evaluates routes in order, so more specific routes should come first
-// However, since /:userId/report is POST and /:userId/public is GET, they won't conflict
+
+// Rutas de usuarios (orden importante: más específicas primero)
 app.use('/api/users', (req, res, next) => {
   console.log(`[app.js] /api/users route hit | method: ${req.method} | path: ${req.path} | originalUrl: ${req.originalUrl}`);
   next();
 });
-app.use('/api/users', userReportRoutes);
-app.use('/api/users', userRoutes);
-app.use('/auth', authRoutes);
-app.use('/api/drivers', vehicleRoutes);
-app.use('/drivers', tripOfferRoutes);
-app.use('/drivers', driverRoutes);
-app.use('/passengers', passengerRoutes);
-app.use('/internal', internalRoutes);
-// Also expose internal admin routes at the top-level /admin path for test helpers
-// Tests expect admin endpoints under /admin; mounting here keeps existing /internal/* paths working
-// NOTE: Mounting internalRoutes at '/' could intercept other routes, so we only mount specific admin routes
-// app.use('/', internalRoutes); // COMMENTED OUT to prevent route interception
-app.use('/notifications', notificationRoutes);
-// Trip-level routes (reviews)
-app.use('/trips', reviewRoutes);
-// Admin routes
-app.use('/admin', adminRoutes);
+app.use('/api/users', userReportRoutes); // Reportar usuarios
+app.use('/api/users', userRoutes); // Rutas generales de usuarios
 
-// Swagger Documentation
+app.use('/auth', authRoutes); // Autenticación
+app.use('/api/drivers', vehicleRoutes); // Vehículos
+app.use('/drivers', tripOfferRoutes); // Ofertas de viaje
+app.use('/drivers', driverRoutes); // Acciones de conductores
+app.use('/passengers', passengerRoutes); // Acciones de pasajeros
+app.use('/internal', internalRoutes); // Rutas internas (tests, herramientas)
+app.use('/notifications', notificationRoutes); // Notificaciones
+app.use('/trips', reviewRoutes); // Reseñas
+app.use('/admin', adminRoutes); // Administración
+
+// Documentación Swagger
 serveSwagger(app);
 
-// 404 handler
+// Manejo de errores (debe ser el último middleware)
 app.use((req, res) => {
   res.status(404).json({
     code: 'not_found',
@@ -151,8 +152,7 @@ app.use((req, res) => {
   });
 });
 
-// Global error handler
-app.use(errorHandler);
+app.use(errorHandler); // Handler global de errores
 
 module.exports = app;
 

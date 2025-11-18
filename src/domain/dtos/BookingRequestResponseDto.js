@@ -19,12 +19,15 @@ class BookingRequestResponseDto {
     seats,
     note,
     canceledAt,
-    isPaid = false, // Payment functionality removed
+    paymentMethod = null,
+    paymentStatus = null,
+    paidAt = null,
+    isPaid = false,
     createdAt,
     updatedAt,
-    // Optional populated trip data (for list responses)
+    // Datos de viaje poblados opcionales (para respuestas de lista)
     trip = null,
-    // Optional populated passenger data (for driver view)
+    // Datos de pasajero poblados opcionales (para vista de conductor)
     passenger = null
   }) {
     this.id = id;
@@ -34,11 +37,14 @@ class BookingRequestResponseDto {
     this.seats = seats;
     this.note = note;
     this.canceledAt = canceledAt;
-      this.isPaid = false; // Payment functionality removed
+    this.paymentMethod = paymentMethod;
+    this.paymentStatus = paymentStatus;
+    this.paidAt = paidAt;
+    this.isPaid = isPaid;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
 
-    // If passenger is populated, include passenger info
+    // Si el pasajero está poblado, incluir información del pasajero
     if (passenger) {
       this.passenger = {
         id: passenger._id?.toString() || passenger.id,
@@ -48,9 +54,9 @@ class BookingRequestResponseDto {
       };
     }
 
-    // If trip is populated, include relevant trip details
+    // Si el viaje está poblado, incluir detalles relevantes del viaje
     if (trip) {
-      // Extract driverId - could be ObjectId string or populated object
+      // Extraer driverId - puede ser string ObjectId u objeto poblado
       let driverIdValue = null;
       if (trip.driverId) {
         if (typeof trip.driverId === 'object') {
@@ -62,14 +68,14 @@ class BookingRequestResponseDto {
       
       this.trip = {
         id: trip.id || trip._id?.toString(),
-        driverId: driverIdValue, // Include driverId for navigation
+        driverId: driverIdValue, // Incluir driverId para navegación
         origin: trip.origin,
         destination: trip.destination,
         departureAt: trip.departureAt,
         estimatedArrivalAt: trip.estimatedArrivalAt,
         pricePerSeat: trip.pricePerSeat,
         status: trip.status,
-        // Include driver info if populated
+        // Incluir información del conductor si está poblada
         driver: trip.driverId && typeof trip.driverId === 'object' ? {
           id: trip.driverId._id?.toString() || trip.driverId.id,
           firstName: trip.driverId.firstName,
@@ -81,11 +87,7 @@ class BookingRequestResponseDto {
     }
   }
 
-  /**
-   * Create DTO from domain entity
-   * @param {BookingRequest} bookingRequest - Domain entity
-   * @returns {BookingRequestResponseDto}
-   */
+  // Crear DTO desde entidad de dominio
   static fromDomain(bookingRequest) {
     return new BookingRequestResponseDto({
       id: bookingRequest.id,
@@ -95,7 +97,10 @@ class BookingRequestResponseDto {
       seats: bookingRequest.seats,
       note: bookingRequest.note,
       canceledAt: bookingRequest.canceledAt,
-      isPaid: false, // Payment functionality removed
+      paymentMethod: bookingRequest.paymentMethod,
+      paymentStatus: bookingRequest.paymentStatus,
+      paidAt: bookingRequest.paidAt,
+      isPaid: bookingRequest.isPaid,
       createdAt: bookingRequest.createdAt,
       updatedAt: bookingRequest.updatedAt
     });
@@ -143,7 +148,10 @@ class BookingRequestResponseDto {
       seats: obj.seats,
       note: obj.note || '',
       canceledAt: obj.canceledAt,
-      isPaid: false, // Payment functionality removed
+      paymentMethod: obj.paymentMethod || null,
+      paymentStatus: obj.paymentStatus || null,
+      paidAt: obj.paidAt || null,
+      isPaid: obj.isPaid || false,
       createdAt: obj.createdAt,
       updatedAt: obj.updatedAt,
       // Include populated trip if available

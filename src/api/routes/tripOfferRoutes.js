@@ -1,3 +1,4 @@
+// Rutas de ofertas de viaje: creación y gestión de ofertas de viaje de conductores
 const express = require('express');
 const TripOfferController = require('../controllers/tripOfferController');
 const validateRequest = require('../middlewares/validateRequest');
@@ -12,32 +13,13 @@ const router = express.Router();
 const tripOfferController = new TripOfferController();
 
 /**
+ * POST /drivers/trips: crear nueva oferta de viaje (solo conductores)
  * @openapi
  * /drivers/trips:
  *   post:
- *     tags:
- *       - Trip Offers
- *     summary: Create a new trip offer (Driver only)
- *     description: |
- *       Creates a new trip offer for the authenticated driver.
- *       
- *       **Authorization**: Requires role='driver' and valid JWT cookie.
- *       
- *       **Business Rules**:
- *       - vehicleId must be owned by the driver
- *       - departureAt must be in the future (for published trips)
- *       - estimatedArrivalAt must be after departureAt
- *       - totalSeats must be ≤ vehicle capacity
- *       - Optional: rejects overlapping published trips (same driver, same time window)
- *       
- *       **Status**:
- *       - `draft`: Trip is not visible to passengers, can be published later
- *       - `published`: Trip is visible to passengers and can receive bookings
- *       
- *       **Structured Logging**:
- *       - All requests logged with correlation ID
- *       - PII (origin/destination text) redacted in logs
- *       - Only status codes and trip IDs logged
+ *     summary: Create a new trip offer
+ *     description: Creates a new trip offer for the authenticated driver
+ *     tags: [Trip Offers]
  *     security:
  *       - cookieAuth: []
  *     requestBody:

@@ -1,3 +1,4 @@
+// Controlador de reportes de usuarios: maneja reportes de usuarios desde viajes específicos
 const UserReportModel = require('../../infrastructure/database/models/UserReportModel');
 const TripOfferModel = require('../../infrastructure/database/models/TripOfferModel');
 const BookingRequestModel = require('../../infrastructure/database/models/BookingRequestModel');
@@ -5,18 +6,15 @@ const UserModel = require('../../infrastructure/database/models/UserModel');
 const InAppNotification = require('../../infrastructure/database/models/InAppNotificationModel');
 
 class UserReportController {
-  /**
-   * POST /users/:userId/report
-   * Report a user from a specific trip
-   * Only allowed if reporter and reported user participated in the same trip
-   */
+  // POST /users/:userId/report: reportar usuario desde un viaje específico
+  // Solo permitido si el reportador y el usuario reportado participaron en el mismo viaje
   async reportUser(req, res, next) {
     try {
       const { userId } = req.params;
       const { tripId, category, reason = '' } = req.body;
       const reporterId = req.user.sub;
 
-      // Validate that tripId is provided
+      // Validar que tripId esté presente
       if (!tripId) {
         return res.status(400).json({
           code: 'missing_trip_id',
@@ -25,7 +23,7 @@ class UserReportController {
         });
       }
 
-      // Validate that user is not reporting themselves
+      // Validar que el usuario no se reporte a sí mismo
       if (String(userId) === String(reporterId)) {
         return res.status(400).json({
           code: 'cannot_report_self',
@@ -34,7 +32,7 @@ class UserReportController {
         });
       }
 
-      // Verify trip exists
+      // Verificar que el viaje existe
       const trip = await TripOfferModel.findById(tripId).lean();
       if (!trip) {
         return res.status(404).json({
@@ -44,7 +42,7 @@ class UserReportController {
         });
       }
 
-      // Verify that the reported user is either the driver or a passenger of this trip
+      // Verificar que el usuario reportado es conductor o pasajero de este viaje
       const isDriver = String(trip.driverId) === String(userId);
       const isPassenger = await BookingRequestModel.findOne({
         tripId,
@@ -60,7 +58,7 @@ class UserReportController {
         });
       }
 
-      // Verify that the reporter participated in the trip
+      // Verificar que el reportador participó en el viaje
       const reporterIsDriver = String(trip.driverId) === String(reporterId);
       const reporterIsPassenger = await BookingRequestModel.findOne({
         tripId,
@@ -76,7 +74,7 @@ class UserReportController {
         });
       }
 
-      // Check for duplicate report
+      // Verificar reporte duplicado
       const existing = await UserReportModel.findOne({
         reportedUserId: userId,
         reporterId,

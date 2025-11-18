@@ -1,8 +1,9 @@
+// Middleware de Swagger: configuración y servidor de documentación OpenAPI/Swagger para la API
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const path = require('path');
 
-// Configuración simplificada de Swagger
+// Configuración de Swagger: define metadatos, esquemas y rutas para documentación OpenAPI
 const swaggerOptions = {
   definition: {
     openapi: '3.0.3',
@@ -34,6 +35,7 @@ const swaggerOptions = {
       { name: 'Passenger Trips', description: 'Búsqueda y reserva de viajes (passengers)' }
     ],
     components: {
+      // Esquemas de seguridad: autenticación mediante cookie httpOnly con JWT
       securitySchemes: {
         cookieAuth: {
           type: 'apiKey',
@@ -43,7 +45,7 @@ const swaggerOptions = {
         }
       },
       schemas: {
-        // Error Schemas
+        // Esquemas de errores: definen formatos de respuestas de error de la API
         ErrorValidation: {
           type: 'object',
           properties: {
@@ -104,7 +106,7 @@ const swaggerOptions = {
             correlationId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' }
           }
         },
-        // User Schemas
+        // Esquemas de usuario: definen estructura de respuestas relacionadas con usuarios
         UserResponseDto: {
           type: 'object',
           properties: {
@@ -135,7 +137,7 @@ const swaggerOptions = {
           },
           description: 'At least one field required'
         },
-        // Trip Offer Schemas
+        // Esquemas de ofertas de viaje: definen estructura de respuestas de ofertas de viaje
         TripOfferResponse: {
           type: 'object',
           properties: {
@@ -178,7 +180,7 @@ const swaggerOptions = {
             updatedAt: { type: 'string', format: 'date-time', example: '2025-10-22T10:00:00.000Z' }
           }
         },
-        // Booking decision (accept/decline) minimal shape
+        // Esquema de decisión de reserva: respuesta cuando conductor acepta o rechaza reserva
         BookingDecision: {
           type: 'object',
           properties: {
@@ -189,7 +191,7 @@ const swaggerOptions = {
             decidedAt: { type: 'string', format: 'date-time', example: '2025-10-23T05:00:00.000Z' }
           }
         },
-        // Capacity snapshot shape
+        // Esquema de capacidad: snapshot de asientos disponibles en un viaje
         CapacitySnapshot: {
           type: 'object',
           properties: {
@@ -199,6 +201,7 @@ const swaggerOptions = {
           }
         }
       },
+      // Respuestas reutilizables: definen respuestas comunes de la API para reutilización
       responses: {
         BookingAccepted: {
           description: 'Booking accepted successfully',
@@ -265,16 +268,17 @@ const swaggerOptions = {
       }
     }
   },
+  // Rutas de archivos: especifica dónde buscar comentarios JSDoc para generar documentación
   apis: [
     path.join(__dirname, '../routes/*.js'),
     path.join(__dirname, '../controllers/*.js')
   ]
 };
 
-// Generar especificación
+// Generar especificación OpenAPI: procesa comentarios JSDoc y genera especificación completa
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Middleware para servir Swagger UI
+// Opciones de Swagger UI: personalización visual de la interfaz de documentación
 const swaggerUiOptions = {
   customCss: `
     .swagger-ui .topbar { display: none }
@@ -284,18 +288,18 @@ const swaggerUiOptions = {
   customfavIcon: '/favicon.ico'
 };
 
-// Middleware para servir la documentación
+// Middleware para servir la documentación: configura rutas para acceder a Swagger UI y especificación JSON
 const serveSwagger = (app) => {
-  // Servir Swagger UI
+  // Servir Swagger UI: interfaz web interactiva para explorar y probar la API
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, swaggerUiOptions));
   
-  // Servir especificación JSON
+  // Servir especificación JSON: endpoint para obtener especificación OpenAPI en formato JSON
   app.get('/api-docs.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
   });
   
-  // Redireccionar root de docs a Swagger UI
+  // Redireccionar root de docs: redirige /docs a /api-docs para acceso más corto
   app.get('/docs', (req, res) => {
     res.redirect('/api-docs');
   });

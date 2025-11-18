@@ -1,18 +1,8 @@
-/**
- * Internal API Validation Schemas
- * 
- * Joi schemas for admin-only internal endpoints:
- * - Job execution
- * - System maintenance
- * - Health checks
- */
-
+// Esquemas de validación de API interna (Joi): validan endpoints internos solo para admin
+// Incluye ejecución de trabajos, mantenimiento del sistema y verificaciones de salud
 const Joi = require('joi');
 
-/**
- * Schema for job execution query params
- * POST /internal/jobs/run?name=complete-trips&pendingTtlHours=48
- */
+// Esquema para ejecución de trabajos (parámetros de consulta): name (complete-trips/auto-complete-trips/expire-pendings/verification-expiry-scan/audit-anchor), pendingTtlHours (1-168 horas, por defecto 48)
 const runJobQuerySchema = Joi.object({
   name: Joi.string()
     .valid('complete-trips', 'auto-complete-trips', 'expire-pendings', 'verification-expiry-scan', 'audit-anchor')
@@ -35,10 +25,7 @@ const runJobQuerySchema = Joi.object({
   abortEarly: false
 });
 
-/**
- * Schema for POST /internal/notifications/templates/render
- * Body: { channel: 'email'|'in-app', type: 'payment.succeeded', variables: { ... } }
- */
+// Esquema para renderizar plantilla de notificación: channel (email/in-app requerido), type (payment.succeeded requerido), locale (en/es, por defecto en), variables (objeto, por defecto {})
 const renderTemplateBodySchema = Joi.object({
   channel: Joi.string().valid('email', 'in-app').required(),
   type: Joi.string().valid('payment.succeeded').required(),
@@ -46,9 +33,7 @@ const renderTemplateBodySchema = Joi.object({
   variables: Joi.object().default({})
 }).options({ abortEarly: false });
 
-/**
- * Schema for POST /internal/notifications/dispatch
- */
+// Esquema para despachar notificación: channel (email/in-app/both, por defecto both), type (requerido), userId (requerido), variables (objeto, por defecto {})
 const dispatchNotificationBodySchema = Joi.object({
   channel: Joi.string().valid('email', 'in-app', 'both').default('both'),
   type: Joi.string().required(),
@@ -56,10 +41,7 @@ const dispatchNotificationBodySchema = Joi.object({
   variables: Joi.object().default({})
 }).options({ abortEarly: false });
 
-/**
- * Schema for POST /internal/notifications/templates/validate
- * Accepts a draft template payload for validation/linting
- */
+// Esquema para validar plantilla de notificación: type (requerido), locale (en/es, por defecto en), subject (requerido), html (requerido), text (requerido), schema (opcional), partials (objeto opcional)
 const validateTemplateBodySchema = Joi.object({
   type: Joi.string().required(),
   locale: Joi.string().valid('en','es').default('en'),
@@ -70,10 +52,7 @@ const validateTemplateBodySchema = Joi.object({
   partials: Joi.object().pattern(Joi.string(), Joi.string()).optional()
 }).options({ abortEarly: false });
 
-/**
- * Schema for PATCH /admin/drivers/:driverId/verification
- * Body: { action: 'approve' | 'reject', reason?: string, comment?: string }
- */
+// Esquema para revisar verificación de conductor: action (approve/reject requerido), reason (requerido si action=reject, mínimo 3 caracteres), comment (opcional)
 const reviewDriverVerificationBodySchema = Joi.object({
   action: Joi.string().valid('approve','reject').required(),
   reason: Joi.when('action', {

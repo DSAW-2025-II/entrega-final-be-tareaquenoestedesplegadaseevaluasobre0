@@ -1,3 +1,4 @@
+// Controlador de usuarios: maneja registro y gestión de perfiles
 const UserService = require('../../domain/services/UserService');
 const AuthService = require('../../domain/services/AuthService');
 const MongoUserRepository = require('../../infrastructure/repositories/MongoUserRepository');
@@ -12,18 +13,12 @@ class UserController {
     this.userRepository = new MongoUserRepository();
   }
 
-  /**
-   * POST /users - Registrar nuevo usuario
-   * @param {Object} req - Request object
-   * @param {Object} res - Response object
-   * @param {Function} next - Next middleware
-   */
+  // POST /users: registrar nuevo usuario (auto-login después del registro)
   async register(req, res, next) {
     try {
       const { firstName, lastName, universityId, corporateEmail, phone, password, role } = req.body;
       const profilePhoto = req.file; // Archivo subido por Multer
 
-      // Crear objeto con datos del usuario
       const userData = {
         firstName,
         lastName,
@@ -34,33 +29,31 @@ class UserController {
         role
       };
 
-      // Registrar usuario usando el servicio
+      // Registrar usuario mediante servicio
       const user = await this.userService.registerUser(userData, profilePhoto);
 
-      // Generate JWT token for auto-login after registration
+      // Generar token JWT para auto-login después del registro
       const token = this.authService.signAccessToken({
         sub: user.id,
         role: user.role,
         email: user.corporateEmail
       });
 
-      // Set httpOnly cookie with JWT (auto-login)
-      const isProduction = process.env.NODE_ENV === 'production';
-      const cookieMaxAge = 2 * 60 * 60 * 1000; // 2 hours
+      // Establecer cookie httpOnly con JWT (auto-login)
+      const cookieMaxAge = 2 * 60 * 60 * 1000; // 2 horas
 
       res.cookie('access_token', token, {
         httpOnly: true,
-        secure: true,                // Always require HTTPS (Vercel uses HTTPS)
-        sameSite: 'none',            // Allow cross-site cookies (required for different Vercel domains)
+        secure: true,
+        sameSite: 'none',
         maxAge: cookieMaxAge,
         path: '/'
       });
 
-      // Generate and set CSRF token
+      // Generar y establecer token CSRF
       const csrfToken = generateCsrfToken();
       setCsrfCookie(res, csrfToken);
 
-      // Respuesta exitosa
       res.status(201).json(user);
 
     } catch (error) {

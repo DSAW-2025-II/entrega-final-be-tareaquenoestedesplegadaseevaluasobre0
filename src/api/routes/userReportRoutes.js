@@ -1,3 +1,4 @@
+// Rutas de reportes de usuarios: reportar usuarios y obtener reportes recibidos
 const express = require('express');
 const router = express.Router();
 const userReportController = require('../controllers/userReportController');
@@ -18,20 +19,14 @@ const userIdParamSchema = Joi.object({
     })
 }).options({ abortEarly: false });
 
-/**
- * GET /users/me/reports-received
- * Get all reports made about the current user
- */
+// GET /users/me/reports-received: obtener todos los reportes hechos sobre el usuario actual
 router.get(
   '/me/reports-received',
   authenticate,
   userReportController.getMyReportsReceived.bind(userReportController)
 );
 
-/**
- * POST /users/:userId/report
- * Report a user from a specific trip
- */
+// POST /users/:userId/report: reportar usuario desde un viaje específico
 router.post(
   '/:userId/report',
   generalRateLimiter,

@@ -1,8 +1,4 @@
-/**
- * TripOffer Domain Entity
- * Represents a driver's trip offer with origin, destination, timing, pricing, and capacity.
- */
-
+// Entidad de dominio TripOffer: representa oferta de viaje del conductor con origen, destino, horarios, precios y capacidad
 const InvalidTransitionError = require('../errors/InvalidTransitionError');
 
 class TripOffer {
@@ -25,7 +21,7 @@ class TripOffer {
     this.driverId = driverId;
     this.vehicleId = vehicleId;
     this.origin = origin; // { text: string, geo: { lat: number, lng: number } }
-    this.destination = destination; // Same shape
+    this.destination = destination; // Misma estructura
     this.departureAt = departureAt instanceof Date ? departureAt : new Date(departureAt);
     this.estimatedArrivalAt = estimatedArrivalAt instanceof Date ? estimatedArrivalAt : new Date(estimatedArrivalAt);
     this.pricePerSeat = pricePerSeat;
@@ -36,82 +32,63 @@ class TripOffer {
     this.updatedAt = updatedAt;
   }
 
-  /**
-   * Validate temporal constraints
-   */
+  // Validar restricciones temporales
   validateTiming() {
     if (this.departureAt >= this.estimatedArrivalAt) {
       throw new Error('estimatedArrivalAt must be after departureAt');
     }
   }
 
-  /**
-   * Check if departureAt is in the future
-   */
+  // Verificar si departureAt está en el futuro
   isDepartureInFuture() {
     return this.departureAt > new Date();
   }
 
-  /**
-   * Check if trip is editable
-   */
+  // Verificar si el viaje es editable
   isEditable() {
     return this.status !== 'canceled' && this.status !== 'completed' && this.status !== 'in_progress';
   }
 
-  /**
-   * Check if trip can be published
-   */
+  // Verificar si el viaje puede ser publicado
   canBePublished() {
     return this.status === 'draft' && this.isDepartureInFuture();
   }
 
-  /**
-   * Check if trip is cancelable
-   * Legal states for cancellation: draft, published
-   * Cannot cancel: canceled (already canceled), completed (trip finished)
-   */
+  // Verificar si el viaje es cancelable: estados legales para cancelación son draft, published
+  // No se puede cancelar: canceled (ya cancelado), completed (viaje finalizado)
   isCancelable() {
     return this.status === 'draft' || this.status === 'published';
   }
 
-  /**
-   * Check if trip can be canceled (legacy; use isCancelable instead)
-   * @deprecated Use isCancelable() for state machine guard
-   */
+  // Verificar si el viaje puede ser cancelado (legacy; usar isCancelable en su lugar)
+  // @deprecated Usar isCancelable() para guard de máquina de estados
   canBeCanceled() {
     return this.status === 'published' && this.isDepartureInFuture();
   }
 
-  /**
-   * Check if status transition is valid
-   */
+  // Verificar si la transición de estado es válida
   canTransitionTo(newStatus) {
     const validTransitions = {
       draft: ['published', 'canceled'],
       published: ['canceled', 'in_progress'],
       in_progress: ['completed'],
-      canceled: [], // No transitions from canceled
-      completed: [] // No transitions from completed
+      canceled: [], // Sin transiciones desde canceled
+      completed: [] // Sin transiciones desde completed
     };
 
     return validTransitions[this.status]?.includes(newStatus) || false;
   }
 
-  /**
-   * Check if trip time window overlaps with another trip
-   */
+  // Verificar si la ventana de tiempo del viaje se solapa con otro viaje
   overlapsWith(otherTrip) {
-    // Check if [this.departureAt, this.estimatedArrivalAt] overlaps with [other.departureAt, other.estimatedArrivalAt]
+    // Verificar si [this.departureAt, this.estimatedArrivalAt] se solapa con [other.departureAt, other.estimatedArrivalAt]
     return (
       this.departureAt < otherTrip.estimatedArrivalAt &&
       this.estimatedArrivalAt > otherTrip.departureAt
     );
   }
 
-  /**
-   * Update mutable fields
-   */
+  // Actualizar campos mutables
   update({ pricePerSeat, totalSeats, notes, status }) {
     if (pricePerSeat !== undefined) this.pricePerSeat = pricePerSeat;
     if (totalSeats !== undefined) this.totalSeats = totalSeats;
@@ -125,13 +102,8 @@ class TripOffer {
     this.updatedAt = new Date();
   }
 
-  /**
-   * Cancel the trip
-   * Legal transitions: published|draft → canceled
-   * Throws InvalidTransitionError if current state doesn't allow cancellation
-   * 
-   * @throws {InvalidTransitionError} if trip cannot be canceled from current state
-   */
+  // Cancelar el viaje: transiciones legales son published|draft → canceled
+  // Lanza InvalidTransitionError si el estado actual no permite cancelación
   cancel() {
     if (!this.isCancelable()) {
       throw new InvalidTransitionError(

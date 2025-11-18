@@ -1,19 +1,14 @@
-/**
- * Update Trip Offer DTO
- * Data Transfer Object for updating an existing trip offer
- */
+// DTO de actualización de oferta de viaje: objeto de transferencia de datos para actualizar oferta de viaje existente
 class UpdateTripOfferDto {
   constructor({ pricePerSeat, totalSeats, notes, status }) {
-    // Only include fields that are provided
+    // Solo incluir campos que están presentes
     if (pricePerSeat !== undefined) this.pricePerSeat = pricePerSeat;
     if (totalSeats !== undefined) this.totalSeats = totalSeats;
     if (notes !== undefined) this.notes = notes;
     if (status !== undefined) this.status = status;
   }
 
-  /**
-   * Create DTO from request body
-   */
+  // Crear DTO desde body de request
   static fromRequest(body) {
     return new UpdateTripOfferDto({
       pricePerSeat: body.pricePerSeat,
@@ -23,9 +18,7 @@ class UpdateTripOfferDto {
     });
   }
 
-  /**
-   * Validate DTO structure
-   */
+  // Validar estructura del DTO
   validate() {
     const errors = [];
 
@@ -48,9 +41,7 @@ class UpdateTripOfferDto {
     return errors;
   }
 
-  /**
-   * Check if DTO has any fields to update
-   */
+  // Verificar si el DTO tiene campos para actualizar
   hasUpdates() {
     return (
       this.pricePerSeat !== undefined ||

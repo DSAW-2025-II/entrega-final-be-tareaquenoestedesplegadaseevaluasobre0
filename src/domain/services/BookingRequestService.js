@@ -1,15 +1,8 @@
-/**
- * BookingRequestService
- * 
- * Business logic for booking request management.
- * Enforces domain invariants and orchestrates repositories.
- * 
- * Invariants enforced:
- * 1. Trip must be 'published' and have future departureAt
- * 2. Passenger cannot have duplicate active requests for same trip
- * 3. Cancellation is idempotent (canceled_by_passenger)
- */
-
+// Servicio de dominio de solicitudes de reserva: lógica de negocio para gestión de reservas
+// Aplica invariantes de dominio y orquesta repositorios
+// Invariantes: 1) Viaje debe estar 'published' y tener departureAt futuro
+//              2) Pasajero no puede tener solicitudes activas duplicadas para el mismo viaje
+//              3) Cancelación es idempotente (canceled_by_passenger)
 const DomainError = require('../errors/DomainError');
 const InvalidTransitionError = require('../errors/InvalidTransitionError');
 const NotificationService = require('./NotificationService');
@@ -20,33 +13,22 @@ class BookingRequestService {
     this.tripOfferRepository = tripOfferRepository;
   }
 
-  /**
-   * Create a new booking request
-   * 
-   * Validates:
-   * - Trip exists, is published, and has future departure
-   * - No duplicate active request for same (passenger, trip)
-   * 
-   * @param {CreateBookingRequestDto} createDto - Booking request data
-   * @param {string} passengerId - Requesting passenger ID
-   * @returns {Promise<BookingRequest>} Created booking request
-   * @throws {DomainError} if validation fails
-   */
+  // Crear nueva solicitud de reserva: valida que el viaje existe, está publicado y tiene salida futura
   async createBookingRequest(createDto, passengerId) {
-    const { tripId, seats, note } = createDto;
+    const { tripId, seats, note, paymentMethod } = createDto;
 
     console.log(
       `[BookingRequestService] Creating booking request | passengerId: ${passengerId} | tripId: ${tripId} | seats: ${seats}`
     );
 
-    // 1. Verify trip exists
+    // 1. Verificar que el viaje existe
     const trip = await this.tripOfferRepository.findById(tripId);
     if (!trip) {
       console.log(`[BookingRequestService] Trip not found | tripId: ${tripId}`);
       throw new DomainError('Trip offer not found', 'trip_not_found');
     }
 
-    // 2. Verify passenger is not the driver (can't book own trip)
+    // 2. Verificar que el pasajero no es el conductor (no puede reservar su propio viaje)
     if (trip.driverId === passengerId) {
       console.log(
         `[BookingRequestService] Driver cannot book own trip | passengerId: ${passengerId} | tripId: ${tripId} | driverId: ${trip.driverId}`
@@ -57,7 +39,7 @@ class BookingRequestService {
       );
     }
 
-    // 3. Verify trip is published
+    // 3. Verificar que el viaje está publicado
     if (trip.status !== 'published') {
       console.log(
         `[BookingRequestService] Trip not published | tripId: ${tripId} | status: ${trip.status}`
@@ -68,7 +50,7 @@ class BookingRequestService {
       );
     }
 
-    // 4. Verify trip departure is in the future
+    // 4. Verificar que la salida del viaje está en el futuro
     if (!trip.isDepartureInFuture()) {
       console.log(
         `[BookingRequestService] Trip departure is in the past | tripId: ${tripId} | departureAt: ${trip.departureAt}`
@@ -79,7 +61,7 @@ class BookingRequestService {
       );
     }
 
-    // 5. Check for duplicate active request
+    // 5. Verificar solicitud activa duplicada
     const existingBooking = await this.bookingRequestRepository.findActiveBooking(
       passengerId,
       tripId
@@ -95,8 +77,7 @@ class BookingRequestService {
       );
     }
 
-    // 6. Soft capacity check (log warning but don't block)
-    // Note: Strict capacity enforcement happens during driver acceptance (future story)
+    // 6. Verificación suave de capacidad (loguea advertencia pero no bloquea)
     const activeBookingsCount = await this.bookingRequestRepository.countActiveBookingsForTrip(tripId);
     const requestedTotalSeats = activeBookingsCount + seats;
     
@@ -112,11 +93,12 @@ class BookingRequestService {
       tripId,
       passengerId,
       seats,
-      note: note || ''
+      note: note || '',
+      paymentMethod: paymentMethod || null // Store payment method preference
     });
 
     console.log(
-      `[BookingRequestService] Booking request created | bookingId: ${bookingRequest.id} | passengerId: ${passengerId} | tripId: ${tripId} | status: ${bookingRequest.status}`
+      `[BookingRequestService] Booking request created | bookingId: ${bookingRequest.id} | passengerId: ${passengerId} | tripId: ${tripId} | status: ${bookingRequest.status} | paymentMethod: ${bookingRequest.paymentMethod}`
     );
 
     // Notify driver of new booking request
@@ -243,6 +225,23 @@ class BookingRequestService {
         bookingRequest.status,
         'canceled_by_passenger',
         409
+      );
+    }
+
+    // 4.5. Check if trip has already started (cannot cancel if trip is in_progress or completed)
+    const trip = await this.tripOfferRepository.findById(bookingRequest.tripId);
+    if (!trip) {
+      throw new DomainError('Trip offer not found', 'trip_not_found', 404);
+    }
+
+    if (trip.status === 'in_progress' || trip.status === 'completed') {
+      console.log(
+        `[BookingRequestService] Cannot cancel booking - trip has already started or completed | bookingId: ${bookingId} | tripStatus: ${trip.status}`
+      );
+      throw new DomainError(
+        'No se puede cancelar la reserva porque el viaje ya ha comenzado o finalizado',
+        'cancellation_trip_started',
+        400
       );
     }
 
@@ -508,6 +507,15 @@ class BookingRequestService {
     // 8. Update booking status to 'accepted'
     const acceptedBooking = await this.bookingRequestRepository.accept(bookingId, driverId);
 
+    // 9. Initialize payment as pending
+    // Payment method will be selected by passenger when they pay
+    acceptedBooking.initializePayment();
+    await this.bookingRequestRepository.save(acceptedBooking);
+    
+    console.log(
+      `[BookingRequestService] Payment initialized | bookingId: ${bookingId} | paymentStatus: ${acceptedBooking.paymentStatus}`
+    );
+
     console.log(
       `[BookingRequestService] Booking request accepted | bookingId: ${bookingId} | driverId: ${driverId} | passengerId: ${bookingRequest.passengerId} | seats: ${bookingRequest.seats} | allocatedSeats: ${ledger.allocatedSeats}`
     );
@@ -517,7 +525,7 @@ class BookingRequestService {
       bookingRequest.passengerId,
       'booking.accepted',
       'Reserva aceptada',
-      `Tu solicitud de reserva ha sido aceptada por el conductor.`,
+      `Tu solicitud de reserva ha sido aceptada por el conductor. Realiza el pago para completar tu reserva.`,
       {
         bookingId: acceptedBooking.id,
         tripId: trip.id,

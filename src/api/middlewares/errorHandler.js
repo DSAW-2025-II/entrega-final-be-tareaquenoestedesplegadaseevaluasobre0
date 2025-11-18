@@ -1,11 +1,9 @@
-/**
- * Middleware global para manejo de errores
- * Convierte errores de dominio a respuestas HTTP apropiadas
- */
+// Middleware global de manejo de errores: convierte errores de dominio a respuestas HTTP apropiadas
+// Maneja DomainError, errores de Multer (carga de archivos) y errores genéricos del servidor
 const DomainError = require('../../domain/errors/DomainError');
 
 const errorHandler = (err, req, res, next) => {
-  // Log del error para debugging
+  // Registrar error para debugging con información de contexto
   console.error('Error caught by errorHandler:', {
     message: err.message,
     code: err.code,
@@ -15,12 +13,12 @@ const errorHandler = (err, req, res, next) => {
     correlationId: req.correlationId
   });
 
-  // If it's a DomainError (preferred) or has explicit statusCode/code, use them.
-  // Be defensive: some code paths throw plain Error with a `code` string but no
-  // numeric statusCode. Normalize those cases into sensible HTTP statuses so
-  // integration tests that expect 4xx get the correct response instead of 500.
+  // Si es un DomainError (preferido) o tiene statusCode/code explícito, usarlos
+  // Ser defensivo: algunos caminos de código lanzan Error plano con un `code` string pero sin
+  // statusCode numérico. Normalizar esos casos a estados HTTP sensatos para que
+  // las pruebas de integración que esperan 4xx obtengan la respuesta correcta en lugar de 500
   if (err instanceof DomainError || err.code || typeof err.statusCode === 'number') {
-    // Known mapping for common domain error codes (fallbacks)
+    // Mapeo conocido para códigos de error de dominio comunes (fallbacks)
     const codeToStatus = {
       invalid_booking_state: 409,
       duplicate_payment: 409,
@@ -34,27 +32,27 @@ const errorHandler = (err, req, res, next) => {
     };
 
     let status = 500;
-    // Prefer explicit statusCode
+    // Preferir statusCode explícito
     if (typeof err.statusCode === 'number') {
       status = err.statusCode;
     } else if (typeof err.code === 'number' && err.code >= 400 && err.code < 600) {
-      // Some code paths incorrectly set numeric `code` (e.g. 409) instead of
-      // `statusCode`. If we detect that, honor it as the HTTP status.
+      // Algunos caminos de código establecen incorrectamente `code` numérico (ej. 409) en lugar de
+      // `statusCode`. Si detectamos eso, honrarlo como el estado HTTP
       status = err.code;
     } else if (err instanceof DomainError && typeof err.statusCode === 'number') {
       status = err.statusCode;
     } else if (err.code && codeToStatus[err.code]) {
       status = codeToStatus[err.code];
     } else if (err instanceof DomainError) {
-      // Domain errors without statusCode default to 400 (client error)
+      // Errores de dominio sin statusCode por defecto a 400 (error del cliente)
       status = 400;
     } else if (err.code) {
-      // Generic error with code but unknown mapping -> treat as 400
+      // Error genérico con code pero mapeo desconocido -> tratar como 400
       status = 400;
     }
-    // Determine a stable code string for the response body. Prefer a string
-    // `err.code` when available; otherwise derive from DomainError subclass
-    // name (e.g. InvalidBookingStateError -> invalid_booking_state).
+    // Determinar un código string estable para el cuerpo de la respuesta. Preferir un string
+    // `err.code` cuando esté disponible; de lo contrario derivar del nombre de la subclase DomainError
+    // (ej. InvalidBookingStateError -> invalid_booking_state)
     let responseCode = 'error';
     if (typeof err.code === 'string') {
       responseCode = err.code;
@@ -75,7 +73,7 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Errores de Multer (file upload)
+  // Errores de Multer: manejo específico para errores de carga de archivos
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({
       code: 'payload_too_large',
@@ -92,7 +90,7 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Error genérico del servidor
+  // Error genérico del servidor: captura cualquier error no manejado anteriormente
   console.error('Unhandled error:', err);
   res.status(500).json({
     code: 'internal_server_error',

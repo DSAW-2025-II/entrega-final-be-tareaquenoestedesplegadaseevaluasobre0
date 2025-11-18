@@ -1,5 +1,12 @@
+/**
+ * Servicio de métricas de notificación: agrega y consulta métricas de notificaciones por tipo y canal.
+ * Optimiza consultas de estadísticas y dashboards administrativos.
+ */
 const NotificationMetric = require('../../infrastructure/database/models/NotificationMetricModel');
 
+/**
+ * Convierte una fecha a clave de fecha (YYYY-MM-DD) para agrupación diaria.
+ */
 function toDateKey(d) {
   const dt = new Date(d);
   if (Number.isNaN(dt.getTime())) return null;
@@ -7,10 +14,15 @@ function toDateKey(d) {
 }
 
 class NotificationMetricsService {
+  /**
+   * Incrementa métricas de notificación para un tipo y canal específicos en una fecha.
+   * Crea la entrada si no existe (upsert).
+   */
   async increment({ type, channel, date = new Date(), deltas = {} }) {
     const dateKey = toDateKey(date);
     if (!dateKey) return;
 
+    // Construir objeto de incrementos válidos (solo números)
     const inc = {};
     for (const [k,v] of Object.entries(deltas)) {
       if (v && typeof v === 'number') inc[k] = v;
@@ -29,15 +41,19 @@ class NotificationMetricsService {
     }
   }
 
+  /**
+   * Consulta métricas agregadas en un rango de fechas.
+   * Agrupa por tipo y canal, sumando todas las métricas del rango.
+   */
   async queryRange(from, to) {
     const fromKey = toDateKey(from);
     const toKey = toDateKey(to);
     if (!fromKey || !toKey) return { range: null, items: [] };
 
     const items = await NotificationMetric.aggregate([
-      { $match: { date: { $gte: fromKey, $lte: toKey } } },
+      { $match: { date: { $gte: fromKey, $lte: toKey } } }, // Filtrar por rango de fechas
       { $group: {
-          _id: { type: '$type', channel: '$channel' },
+          _id: { type: '$type', channel: '$channel' }, // Agrupar por tipo y canal
           rendered: { $sum: '$rendered' },
           attempted: { $sum: '$attempted' },
           delivered: { $sum: '$delivered' },

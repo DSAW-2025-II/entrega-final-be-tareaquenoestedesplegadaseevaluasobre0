@@ -1,15 +1,14 @@
-/**
- * UpdateVehicleDto - Data Transfer Object for vehicle updates
- * Allows partial updates to vehicle data
- */
+// DTO de actualización de vehículo: objeto de transferencia de datos para actualizaciones parciales de vehículo
 class UpdateVehicleDto {
   constructor({
+    plate,
     brand,
     model,
     capacity,
     vehiclePhotoUrl,
     soatPhotoUrl
   }) {
+    if (plate !== undefined) this.plate = plate?.trim().toUpperCase();
     if (brand !== undefined) this.brand = brand?.trim();
     if (model !== undefined) this.model = model?.trim();
     if (capacity !== undefined) this.capacity = capacity;
@@ -17,13 +16,10 @@ class UpdateVehicleDto {
     if (soatPhotoUrl !== undefined) this.soatPhotoUrl = soatPhotoUrl;
   }
 
-  /**
-   * Create DTO from request body (PATCH semantics - partial updates)
-   * @param {Object} body - Request body
-   * @returns {UpdateVehicleDto} - DTO instance
-   */
+  // Crear DTO desde body de request (semántica PATCH - actualizaciones parciales)
   static fromRequest(body) {
     return new UpdateVehicleDto({
+      plate: body.plate,
       brand: body.brand,
       model: body.model,
       capacity: body.capacity ? parseInt(body.capacity) : undefined,
@@ -32,17 +28,13 @@ class UpdateVehicleDto {
     });
   }
 
-  /**
-   * Create DTO from multipart/form-data request
-   * @param {Object} fields - Form fields from request body
-   * @param {Object} files - Uploaded files { vehiclePhoto, soatPhoto }
-   * @returns {UpdateVehicleDto} - DTO instance
-   */
+  // Crear DTO desde request multipart/form-data
   static fromMultipart(fields, files) {
     const vehiclePhotoUrl = files?.vehiclePhoto ? `/uploads/vehicles/${files.vehiclePhoto.filename}` : undefined;
     const soatPhotoUrl = files?.soatPhoto ? `/uploads/vehicles/${files.soatPhoto.filename}` : undefined;
 
     return new UpdateVehicleDto({
+      plate: fields.plate,
       brand: fields.brand,
       model: fields.model,
       capacity: fields.capacity ? parseInt(fields.capacity) : undefined,
@@ -51,24 +43,28 @@ class UpdateVehicleDto {
     });
   }
 
-  /**
-   * Validate DTO data
-   * @throws {ValidationError} - If validation fails
-   */
+  // Validar datos del DTO: lanza ValidationError si la validación falla
   validate() {
     const errors = [];
 
-    // Brand validation (if provided)
+    // Validación de placa (si está presente)
+    if (this.plate !== undefined) {
+      if (!/^[A-Z]{3}[0-9]{3}$/.test(this.plate)) {
+        errors.push({ field: 'plate', issue: 'Plate must be in format ABC123 (3 letters, 3 numbers)' });
+      }
+    }
+
+    // Validación de marca (si está presente)
     if (this.brand !== undefined && (this.brand.length < 2 || this.brand.length > 60)) {
       errors.push({ field: 'brand', issue: 'Brand must be between 2 and 60 characters' });
     }
 
-    // Model validation (if provided)
+    // Validación de modelo (si está presente)
     if (this.model !== undefined && (this.model.length < 1 || this.model.length > 60)) {
       errors.push({ field: 'model', issue: 'Model must be between 1 and 60 characters' });
     }
 
-    // Capacity validation (if provided)
+    // Validación de capacidad (si está presente)
     if (this.capacity !== undefined && (this.capacity < 1 || this.capacity > 20)) {
       errors.push({ field: 'capacity', issue: 'Capacity must be between 1 and 20 passengers' });
     }
@@ -85,6 +81,7 @@ class UpdateVehicleDto {
    */
   toObject() {
     const obj = {};
+    if (this.plate !== undefined) obj.plate = this.plate;
     if (this.brand !== undefined) obj.brand = this.brand;
     if (this.model !== undefined) obj.model = this.model;
     if (this.capacity !== undefined) obj.capacity = this.capacity;

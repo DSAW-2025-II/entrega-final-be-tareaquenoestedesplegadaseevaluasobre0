@@ -1,3 +1,4 @@
+// Controlador de ofertas de viaje: maneja creación y gestión de ofertas de viaje de conductores
 const TripOfferService = require('../../domain/services/TripOfferService');
 const MongoTripOfferRepository = require('../../infrastructure/repositories/MongoTripOfferRepository');
 const MongoVehicleRepository = require('../../infrastructure/repositories/MongoVehicleRepository');
@@ -6,10 +7,6 @@ const CreateTripOfferDto = require('../../domain/dtos/CreateTripOfferDto');
 const UpdateTripOfferDto = require('../../domain/dtos/UpdateTripOfferDto');
 const TripOfferResponseDto = require('../../domain/dtos/TripOfferResponseDto');
 
-/**
- * Trip Offer Controller
- * Handles HTTP requests for trip offer management
- */
 class TripOfferController {
   constructor() {
     this.tripOfferRepository = new MongoTripOfferRepository();
@@ -22,25 +19,22 @@ class TripOfferController {
     );
   }
 
-  /**
-   * POST /drivers/trips
-   * Create a new trip offer
-   */
+  // POST /drivers/trips: crear nueva oferta de viaje
   async createTripOffer(req, res, next) {
     try {
-      const driverId = req.user.id; // From authenticate middleware
+      const driverId = req.user.id; // Desde middleware authenticate
 
       console.log(
         `[TripOfferController] Create trip | driverId: ${driverId} | correlationId: ${req.correlationId}`
       );
 
-      // Create DTO from request body
+      // Crear DTO desde body de la petición
       const createDto = CreateTripOfferDto.fromRequest(req.body);
 
-      // Create trip offer via service
+      // Crear oferta de viaje mediante servicio
       const tripOffer = await this.tripOfferService.createTripOffer(driverId, createDto);
 
-      // Return response DTO
+      // Retornar DTO de respuesta
       const responseDto = TripOfferResponseDto.fromDomain(tripOffer);
 
       console.log(
@@ -53,7 +47,7 @@ class TripOfferController {
         `[TripOfferController] Create failed | driverId: ${req.user?.id} | error: ${error.message} | correlationId: ${req.correlationId}`
       );
 
-      // Map domain errors to HTTP responses
+      // Mapear errores de dominio a respuestas HTTP
       if (error.name === 'ValidationError') {
         return res.status(400).json({
           code: 'invalid_schema',

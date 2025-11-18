@@ -1,3 +1,4 @@
+// Rutas de reseñas: creación y reporte de reseñas de viajes
 const express = require('express');
 const router = express.Router();
 
@@ -10,7 +11,7 @@ const { createReviewBodySchema } = require('../validation/reviewSchemas');
 
 const controller = new ReviewController();
 
-// POST /trips/:tripId/reviews - passenger writes a review for a completed trip
+// POST /trips/:tripId/reviews: pasajero escribe reseña para un viaje completado
 router.post(
   '/:tripId/reviews',
   authenticate,
@@ -20,7 +21,7 @@ router.post(
   controller.createReview.bind(controller)
 );
 
-// Report a review: POST /reviews/:reviewId/report
+// POST /reviews/:reviewId/report: reportar una reseña
 router.post(
   '/reviews/:reviewId/report',
   authenticate,

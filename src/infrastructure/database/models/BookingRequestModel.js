@@ -1,24 +1,6 @@
-/**
- * BookingRequest Mongoose Model
- * 
- * Represents a passenger's request to book a seat on a published trip offer.
- * 
- * Business Rules:
- * - A passenger can only have ONE active (pending/accepted) request per trip
- * - Requests start as 'pending' and can transition to other states
- * - Trip must be 'published' and have future departureAt when creating request
- * - Cancellation is idempotent (canceled_by_passenger)
- * 
- * Status Lifecycle (this slice):
- * - pending: Initial state when passenger creates request
- * - canceled_by_passenger: Passenger canceled their request
- * 
- * Future statuses (next story):
- * - accepted: Driver accepted the request (seat allocated)
- * - declined: Driver declined the request
- * - expired: Trip departed without driver action
- */
-
+// Modelo de solicitud de reserva: representa solicitud de pasajero para reservar asiento en viaje publicado
+// Reglas de negocio: un pasajero solo puede tener UNA solicitud activa (pending/accepted) por viaje
+// Estados: pending, accepted, declined, declined_auto, declined_by_admin, canceled_by_passenger, canceled_by_platform, expired
 const mongoose = require('mongoose');
 
 const bookingRequestSchema = new mongoose.Schema(
@@ -67,7 +49,7 @@ const bookingRequestSchema = new mongoose.Schema(
       maxlength: [300, 'Note cannot exceed 300 characters'],
       default: ''
     },
-    // Audit trail fields for driver decisions
+    // Campos de pista de auditoría para decisiones del conductor
     acceptedAt: {
       type: Date,
       default: null
@@ -96,25 +78,45 @@ const bookingRequestSchema = new mongoose.Schema(
       type: Date,
       default: null
     },
-    // Optional cancellation reason for passenger-initiated cancellations (US-3.4.3)
-    // Used for audit trail and analytics
+    // Razón de cancelación opcional para cancelaciones iniciadas por pasajero
+    // Usado para pista de auditoría y análisis
     cancellationReason: {
       type: String,
       trim: true,
       maxlength: [500, 'Cancellation reason cannot exceed 500 characters'],
       default: ''
     },
-    // Internal flag for refund policy hooks (US-4.2)
-    // Set to true when canceled booking is eligible for refund
-    // Never exposed in DTOs or API responses
+    // Bandera interna para hooks de política de reembolso
+    // Se establece en true cuando reserva cancelada es elegible para reembolso
+    // Nunca expuesta en DTOs o respuestas de API
     refundNeeded: {
       type: Boolean,
       default: false,
       select: false // Exclude by default from queries (internal use only)
     },
-    // Payment status flag (US-4.1.5)
-    // Set to true when payment transaction succeeds
-    // Used for read model sync and display purposes
+    // Campos de pago
+    paymentMethod: {
+      type: String,
+      enum: ['card', 'cash', null],
+      default: null
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['pending', 'completed'],
+      default: null,
+      index: true // For filtering pending payments
+    },
+    stripePaymentIntentId: {
+      type: String,
+      default: null,
+      index: true
+    },
+    paidAt: {
+      type: Date,
+      default: null
+    },
+    // Bandera de estado de pago: se establece en true cuando la transacción de pago tiene éxito
+    // Usado para sincronización de modelo de lectura y propósitos de visualización
     isPaid: {
       type: Boolean,
       default: false,
@@ -127,55 +129,34 @@ const bookingRequestSchema = new mongoose.Schema(
   }
 );
 
-// ============================================
-// INDEXES
-// ============================================
-
-/**
- * Compound index for efficient passenger queries
- * Used by: GET /passengers/bookings (list my requests)
- * Supports sorting by most recent first
- */
+// Índices compuestos para consultas eficientes
+// Índice compuesto para consultas eficientes de pasajero: usado por GET /passengers/bookings, soporta ordenamiento por más reciente primero
 bookingRequestSchema.index({ passengerId: 1, createdAt: -1 });
 
-/**
- * Compound index for trip + status queries
- * Used by: Future driver story - viewing requests for their trips
- * Also helps with duplicate detection
- */
+// Índice compuesto para consultas de viaje + estado: usado para ver solicitudes de viajes del conductor, también ayuda con detección de duplicados
 bookingRequestSchema.index({ tripId: 1, status: 1 });
 
-/**
- * Compound index for duplicate detection
- * Used by service to check if passenger already has active request for this trip
- * Note: We check for status IN ['pending', 'accepted'] programmatically
- */
+// Índice compuesto para detección de duplicados: usado por servicio para verificar si pasajero ya tiene solicitud activa para este viaje
 bookingRequestSchema.index({ passengerId: 1, tripId: 1, status: 1 });
 
-// ============================================
-// INSTANCE METHODS
-// ============================================
-
 /**
- * Check if this booking request is active (not canceled/declined/expired)
- * Active statuses: pending
+ * Compound index for pending payments query
+ * Used to find bookings with pending payments for a passenger
  */
+bookingRequestSchema.index({ passengerId: 1, paymentStatus: 1 });
+
+// Métodos de instancia
+// Verificar si esta solicitud de reserva está activa (no cancelada/rechazada/expirada): estados activos son pending
 bookingRequestSchema.methods.isActive = function () {
   return this.status === 'pending';
 };
 
-/**
- * Check if this booking request can be canceled by passenger
- * Only 'pending' requests can be canceled by passenger
- */
+// Verificar si esta solicitud de reserva puede ser cancelada por pasajero: solo solicitudes 'pending' pueden ser canceladas
 bookingRequestSchema.methods.canBeCanceledByPassenger = function () {
   return this.status === 'pending';
 };
 
-/**
- * Cancel this booking request (passenger-initiated)
- * Idempotent: if already canceled, no error
- */
+// Cancelar esta solicitud de reserva (iniciada por pasajero): idempotente, si ya está cancelada, no hay error
 bookingRequestSchema.methods.cancelByPassenger = function () {
   if (this.status === 'canceled_by_passenger') {
     // Already canceled, idempotent - no-op
@@ -191,14 +172,8 @@ bookingRequestSchema.methods.cancelByPassenger = function () {
   return this;
 };
 
-// ============================================
-// STATIC METHODS
-// ============================================
-
-/**
- * Find active (pending or accepted) booking for a passenger on a specific trip
- * Used to prevent duplicate active bookings
- */
+// Métodos estáticos
+// Encontrar reserva activa (pending o accepted) para un pasajero en un viaje específico: usado para prevenir reservas activas duplicadas
 bookingRequestSchema.statics.findActiveBooking = async function (passengerId, tripId) {
   return this.findOne({
     passengerId,

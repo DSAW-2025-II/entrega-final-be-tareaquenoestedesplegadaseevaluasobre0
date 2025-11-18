@@ -1,12 +1,7 @@
-/**
- * NotificationTemplateService
- *
- * Simple template renderer for notification previews.
- * - Read-only: does not send or persist anything
- * - Returns { subject, html, text }
- *
- * This is a minimal renderer used by admin preview endpoints.
- */
+// Servicio de plantillas de notificaciones: renderizador simple de plantillas para previsualizaciones de notificaciones
+// - Solo lectura: no envía ni persiste nada
+// - Retorna { subject, html, text }
+// Este es un renderizador mínimo usado por endpoints de previsualización de admin
 
 const sanitizeHtml = require('sanitize-html');
 const { htmlToText } = require('html-to-text');
@@ -20,30 +15,31 @@ try {
 
 class NotificationTemplateService {
   constructor() {
-    // metadata describing required variables per template
+    // Metadatos que describen variables requeridas por plantilla
     this.templateMeta = {
       'payment.succeeded': {
         required: ['firstName', 'amount', 'currency']
       }
     };
-    // sanitize-html allowlist
+    // Lista de permitidos para sanitize-html
     this.sanitizeOptions = {
       allowedTags: sanitizeHtml.defaults.allowedTags.concat([ 'img' ]),
       allowedAttributes: Object.assign({}, sanitizeHtml.defaults.allowedAttributes, {
         a: [ 'href', 'name', 'target', 'rel' ],
         img: [ 'src', 'alt', 'title', 'width', 'height' ]
       }),
-      // Disallow inline event handlers, scripts, iframes by default
+      // No permitir manejadores de eventos inline, scripts, iframes por defecto
       nonTextTags: [ 'script', 'style', 'iframe', 'noscript' ]
     };
   }
 
+  // Renderizar plantilla: genera HTML, texto y asunto para una notificación
   async render(channel, type, variables = {}, locale = 'en', options = { sanitize: true, inlineCss: false }) {
-    // Normalize
+    // Normalizar
     const ch = (channel || '').toLowerCase();
     const t = type;
 
-    // Ensure required variables are present for the template
+    // Asegurar que las variables requeridas estén presentes para la plantilla
     const meta = this.templateMeta[t];
     if (meta && Array.isArray(meta.required)) {
       const missing = meta.required.filter(k => variables[k] === undefined || variables[k] === null || variables[k] === '');
@@ -55,7 +51,7 @@ class NotificationTemplateService {
     switch (t) {
       case 'payment.succeeded': {
         const out = this._renderPaymentSucceeded(ch, variables, locale);
-        // Post-process: sanitize, inline CSS (optional), and ensure text fallback
+        // Post-procesamiento: sanitizar, CSS inline (opcional), y asegurar texto alternativo
         let html = out.html || '';
         let text = out.text || '';
 
@@ -65,16 +61,16 @@ class NotificationTemplateService {
 
         if (options && options.inlineCss && inlineCss) {
           try {
-            // inlineCss expects a promise; provide a base URL placeholder
+            // inlineCss espera una promesa; proporcionar un placeholder de URL base
             // eslint-disable-next-line no-await-in-loop
             html = await inlineCss(html, { url: ' ' });
           } catch (e) {
-            // If inlining fails, continue with sanitized HTML
-            // log silently in tests; caller can enable debug logs if desired
+            // Si el inline falla, continuar con HTML sanitizado
+            // registrar silenciosamente en tests; el llamador puede habilitar logs de debug si lo desea
           }
         }
 
-        // Always generate plain-text from sanitized HTML to avoid leaking raw input
+        // Siempre generar texto plano desde HTML sanitizado para evitar filtrar entrada cruda
         try {
           text = htmlToText(html, { wordwrap: 130 });
         } catch (e) {
@@ -85,7 +81,7 @@ class NotificationTemplateService {
       }
 
       default:
-        // Unsupported template type
+        // Tipo de plantilla no soportado
         return null;
     }
   }
@@ -95,6 +91,7 @@ class NotificationTemplateService {
     return v;
   }
 
+  // Formatear moneda: convierte cantidad numérica a formato de moneda localizado
   _formatCurrency(amount, currency, locale) {
     try {
       const code = (currency || 'COP').toUpperCase();
@@ -103,7 +100,7 @@ class NotificationTemplateService {
         currency: code,
         maximumFractionDigits: 0
       });
-      // Use amount as whole units (the app appears to pass 6000 -> "6,000")
+      // Usar cantidad como unidades enteras (la app parece pasar 6000 -> "6,000")
       return nf.format(amount);
     } catch (e) {
       if (typeof amount === 'number') return `${currency || ''} ${amount}`;
@@ -111,12 +108,13 @@ class NotificationTemplateService {
     }
   }
 
+  // Formatear tiempo: convierte string ISO a formato de hora localizado
   _formatTime(isoString, locale) {
     if (!isoString) return 'an unknown time';
     try {
       const d = new Date(isoString);
       if (Number.isNaN(d.getTime())) return 'an unknown time';
-      // HH:MM in 24-hour for many locales; pick a locale-aware formatter
+      // HH:MM en formato 24 horas para muchos locales; elegir un formateador consciente del locale
       const opts = { hour: '2-digit', minute: '2-digit' };
       return d.toLocaleTimeString(locale === 'es' ? 'es-CO' : 'en-GB', opts);
     } catch (e) {
@@ -124,6 +122,7 @@ class NotificationTemplateService {
     }
   }
 
+  // Renderizar plantilla de pago exitoso: genera HTML y texto para notificación de pago completado
   _renderPaymentSucceeded(channel, vars, locale) {
     const firstName = this._safeFirstName(vars.firstName);
     const amount = typeof vars.amount === 'number' ? vars.amount : Number(vars.amount || 0);
@@ -132,7 +131,7 @@ class NotificationTemplateService {
     const formattedAmount = this._formatCurrency(amount, currency, locale);
     const timeStr = this._formatTime(vars.tripTime, locale);
 
-    // Build templates per locale
+    // Construir plantillas por locale
     if (locale === 'es') {
       const subject = '¡Tu pago fue exitoso!';
   const html = `<h1>Gracias, ${firstName}!</h1><p>Tu pago de ${formattedAmount} fue exitoso para el viaje a las ${timeStr}.</p>`;
@@ -149,7 +148,7 @@ class NotificationTemplateService {
     return { subject, html, text };
     }
 
-    // Default: English
+    // Por defecto: Inglés
     const subject = 'Your payment was successful';
     const html = `<h1>Thanks, ${firstName}!</h1><p>Your payment of ${formattedAmount} was successful for the trip at ${timeStr}.</p>`;
     const text = `Thanks, ${firstName}! Your payment of ${formattedAmount} was successful for the trip at ${timeStr}.`;

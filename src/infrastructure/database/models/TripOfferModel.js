@@ -1,5 +1,8 @@
+// Modelo de oferta de viaje: schema de Mongoose para ofertas de viaje con ubicaciones geográficas
+// Estados: draft, published, canceled, completed
 const mongoose = require('mongoose');
 
+// Schema para ubicación geográfica: text (dirección) y geo (lat/lng)
 const geoLocationSchema = new mongoose.Schema(
   {
     text: {
@@ -26,6 +29,7 @@ const geoLocationSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Schema principal de oferta de viaje: driverId, vehicleId, origin, destination, fechas, precios, asientos, estado
 const tripOfferSchema = new mongoose.Schema(
   {
     driverId: {

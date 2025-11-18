@@ -1,3 +1,5 @@
+// Modelo de reseña: schema de Mongoose para reseñas de conductores por pasajeros
+// Campos: tripId, driverId, passengerId, rating (1-5), text, tags, status (visible/hidden/flagged), audit trail, moderación
 const mongoose = require('mongoose');
 
 const reviewSchema = new mongoose.Schema(
@@ -52,7 +54,7 @@ const reviewSchema = new mongoose.Schema(
       default: 'visible',
       index: true
     },
-    // Immutable audit trail - record edits with timestamp and previous text/rating
+    // Pista de auditoría inmutable: registra ediciones con timestamp y texto/rating anterior
     audit: {
       type: [
         {
@@ -64,7 +66,7 @@ const reviewSchema = new mongoose.Schema(
       default: []
     }
     ,
-    // Moderation actions performed by admins: hide/unhide with reason and moderator id
+    // Acciones de moderación realizadas por admins: hide/unhide con razón e ID de moderador
     moderation: {
       type: [
         {

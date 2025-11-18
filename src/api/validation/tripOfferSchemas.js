@@ -1,10 +1,7 @@
+// Esquemas de validación de ofertas de viaje (Joi): validan creación, actualización y búsqueda de viajes
 const Joi = require('joi');
 
-/**
- * Validation schemas for Trip Offer endpoints
- */
-
-// Schema for geo location
+// Esquema para ubicación geográfica: text (1-200 caracteres), geo.lat (-90 a 90), geo.lng (-180 a 180)
 const geoLocationSchema = Joi.object({
   text: Joi.string()
     .trim()
@@ -43,7 +40,7 @@ const geoLocationSchema = Joi.object({
     })
 }).required();
 
-// Schema for creating a trip offer
+// Esquema para crear oferta de viaje: vehicleId (ObjectId), origin, destination, departureAt (ISO), estimatedArrivalAt (después de departureAt), pricePerSeat (>=0), totalSeats (>=1), status (draft/published), notes (opcional, máx 500 caracteres)
 const createTripOfferSchema = Joi.object({
   vehicleId: Joi.string()
     .pattern(/^[a-f\d]{24}$/i)
@@ -117,7 +114,7 @@ const createTripOfferSchema = Joi.object({
   stripUnknown: true
 });
 
-// Schema for updating a trip offer
+// Esquema para actualizar oferta de viaje: pricePerSeat, totalSeats, status (draft/published/canceled/completed), notes (opcional, máx 500 caracteres)
 const updateTripOfferSchema = Joi.object({
   pricePerSeat: Joi.number()
     .min(0)
@@ -160,7 +157,7 @@ const updateTripOfferSchema = Joi.object({
     'object.min': 'At least one field must be provided for update'
   });
 
-// Schema for listing trip offers (query parameters)
+// Esquema para listar ofertas de viaje (parámetros de consulta): status (draft/published/canceled/completed), fromDate, toDate (después de fromDate), page (>=1), pageSize (1-50)
 const listTripsQuerySchema = Joi.object({
   status: Joi.alternatives()
     .try(
@@ -218,7 +215,7 @@ const listTripsQuerySchema = Joi.object({
   stripUnknown: true
 });
 
-// Schema for trip ID parameter
+// Esquema para parámetro de ID de viaje: id (ObjectId MongoDB)
 const tripIdParamSchema = Joi.object({
   id: Joi.string()
     .pattern(/^[a-f\d]{24}$/i)
@@ -231,7 +228,7 @@ const tripIdParamSchema = Joi.object({
   abortEarly: false
 });
 
-// Schema for passenger trip search (query parameters)
+// Esquema para búsqueda de viajes por pasajero (parámetros de consulta): qOrigin, qDestination, fromDate, toDate, fromTime (HH:MM), toTime (HH:MM), minAvailableSeats (>=1), minPrice (>=0), maxPrice (>=minPrice), page (>=1), pageSize (1-50)
 const searchTripsQuerySchema = Joi.object({
   qOrigin: Joi.string()
     .trim()

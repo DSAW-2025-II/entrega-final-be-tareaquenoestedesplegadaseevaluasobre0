@@ -1,18 +1,20 @@
 /**
- * Notification preferences metadata and guardrails
- *
- * Export a map of critical notification types and which channels are locked
- * (non-editable) for safety. Clients can call the metadata endpoint to discover
- * which event/channel pairs cannot be disabled.
+ * Configuración de preferencias de notificación: metadatos y guardas de seguridad.
+ * Exporta un mapa de tipos de notificación críticos y qué canales están bloqueados
+ * (no editables) por seguridad. Los clientes pueden llamar al endpoint de metadatos para descubrir
+ * qué pares evento/canal no se pueden deshabilitar.
  */
 
 const locked = {
-  // Prevent users from disabling email for payment failures — critical alert
+  // Prevenir que usuarios deshabiliten email para fallos de pago — alerta crítica
   'payment.failed': { email: true },
-  // Prevent disabling email for payment succeeded? keep flexible — example only
-  // Add more entries as product requirements evolve
+  // Prevenir deshabilitar email para pago exitoso? mantener flexible — solo ejemplo
+  // Agregar más entradas conforme evolucionen los requisitos del producto
 };
 
+/**
+ * Verifica si un tipo de notificación y canal están bloqueados (no editables).
+ */
 function isLocked(type, channel) {
   if (!locked[type]) return false;
   return !!locked[type][channel];

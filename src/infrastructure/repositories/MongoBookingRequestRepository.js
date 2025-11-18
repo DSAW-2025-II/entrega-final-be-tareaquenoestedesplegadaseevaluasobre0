@@ -1,71 +1,65 @@
-/**
- * MongoBookingRequestRepository
- * 
- * MongoDB implementation of BookingRequestRepository.
- * Handles persistence and queries for booking requests.
- */
-
+// Repositorio de solicitudes de reserva MongoDB: implementación de BookingRequestRepository para MongoDB
+// Maneja persistencia y consultas de solicitudes de reserva
 const BookingRequestModel = require('../database/models/BookingRequestModel');
 const BookingRequest = require('../../domain/entities/BookingRequest');
 
 class MongoBookingRequestRepository {
-  /**
-   * Convert Mongoose document to domain entity
-   * @private
-   */
+  // Convertir documento de Mongoose a entidad de dominio
   _toDomain(doc) {
     if (!doc) return null;
 
     const obj = doc.toObject ? doc.toObject() : doc;
 
+    // Helper para convertir ObjectId a string de forma segura (maneja null/undefined)
+    const toStr = (val) => {
+      if (!val) return null;
+      return val.toString ? val.toString() : String(val);
+    };
+
     return new BookingRequest({
       id: obj._id.toString(),
-      tripId: obj.tripId.toString(),
-      passengerId: obj.passengerId.toString(),
+      tripId: toStr(obj.tripId),
+      passengerId: toStr(obj.passengerId),
       status: obj.status,
       seats: obj.seats,
       note: obj.note || '',
       acceptedAt: obj.acceptedAt,
-      acceptedBy: obj.acceptedBy ? obj.acceptedBy.toString() : null,
+      acceptedBy: toStr(obj.acceptedBy),
       declinedAt: obj.declinedAt,
-      declinedBy: obj.declinedBy ? obj.declinedBy.toString() : null,
+      declinedBy: toStr(obj.declinedBy),
       canceledAt: obj.canceledAt,
-      isPaid: false, // Payment functionality removed
+      cancellationReason: obj.cancellationReason || '',
+      refundNeeded: obj.refundNeeded || false,
+      paymentMethod: obj.paymentMethod || null,
+      paymentStatus: obj.paymentStatus || null,
+      stripePaymentIntentId: obj.stripePaymentIntentId || null,
+      paidAt: obj.paidAt || null,
+      isPaid: obj.isPaid || false,
       createdAt: obj.createdAt,
       updatedAt: obj.updatedAt
     });
   }
 
-  /**
-   * Convert array of Mongoose documents to domain entities
-   * @private
-   */
+  // Convertir array de documentos de Mongoose a entidades de dominio
   _toDomainArray(docs) {
     return docs.map((doc) => this._toDomain(doc));
   }
 
-  /**
-   * Create a new booking request
-   * @param {Object} data - Booking request data
-   * @returns {Promise<BookingRequest>} Created booking request
-   */
-  async create({ tripId, passengerId, seats, note }) {
+  // Crear nueva solicitud de reserva
+  async create({ tripId, passengerId, seats, note, paymentMethod = null }) {
     const doc = await BookingRequestModel.create({
       tripId,
       passengerId,
       seats,
       note,
+      paymentMethod, // Almacenar preferencia de método de pago
       status: 'pending'
     });
 
     return this._toDomain(doc);
   }
 
-  /**
-   * Find booking request by ID
-   * @param {string} id - Booking request ID
-   * @returns {Promise<BookingRequest|null>}
-   */
+  // Encontrar solicitud de reserva por ID
   async findById(id) {
     const doc = await BookingRequestModel.findById(id);
     return this._toDomain(doc);
@@ -186,23 +180,26 @@ class MongoBookingRequestRepository {
       BookingRequestModel.countDocuments(query)
     ]);
 
-    console.log(`[MongoBookingRequestRepository] findByPassengerWithTrip | passengerId: ${passengerId} | query: ${JSON.stringify(query)} | found: ${docs.length} bookings | total: ${total}`);
+    // Filter out bookings where trip was deleted (populate returned null)
+    const validDocs = docs.filter(doc => doc.tripId !== null && doc.tripId !== undefined);
+
+    console.log(`[MongoBookingRequestRepository] findByPassengerWithTrip | passengerId: ${passengerId} | query: ${JSON.stringify(query)} | found: ${validDocs.length} bookings (${docs.length - validDocs.length} with deleted trips filtered) | total: ${total}`);
     
     // Debug: Log first booking structure if exists
-    if (docs.length > 0) {
+    if (validDocs.length > 0) {
       console.log(`[MongoBookingRequestRepository] First booking structure:`, {
-        id: docs[0]._id?.toString(),
-        tripId: docs[0].tripId?._id?.toString() || docs[0].tripId?.toString(),
-        tripIdType: typeof docs[0].tripId,
-        hasTrip: !!docs[0].tripId,
-        tripOrigin: docs[0].tripId?.origin,
-        tripDestination: docs[0].tripId?.destination,
-        tripDriver: docs[0].tripId?.driverId
+        id: validDocs[0]._id?.toString(),
+        tripId: validDocs[0].tripId?._id?.toString() || validDocs[0].tripId?.toString(),
+        tripIdType: typeof validDocs[0].tripId,
+        hasTrip: !!validDocs[0].tripId,
+        tripOrigin: validDocs[0].tripId?.origin,
+        tripDestination: validDocs[0].tripId?.destination,
+        tripDriver: validDocs[0].tripId?.driverId
       });
     }
 
     return {
-      bookings: docs, // Return Mongoose docs with populated tripId
+      bookings: validDocs, // Return Mongoose docs with populated tripId (excluding deleted trips)
       total,
       page,
       limit,
@@ -595,6 +592,132 @@ class MongoBookingRequestRepository {
     );
 
     return result.modifiedCount;
+  }
+
+  /**
+   * Find bookings with pending payments for a passenger
+   * @param {string} passengerId - Passenger ID
+   * @returns {Promise<BookingRequest[]>} Array of bookings with pending payments
+   */
+  async findPendingPayments(passengerId) {
+    const docs = await BookingRequestModel.find({
+      passengerId,
+      paymentStatus: 'pending',
+      status: 'accepted', // Only accepted bookings can have pending payments
+      tripId: { $ne: null } // Exclude bookings with deleted trips
+    })
+      .populate('tripId', 'origin destination departureAt estimatedArrivalAt pricePerSeat status')
+      .sort({ createdAt: -1 });
+
+    // Filter out any bookings where trip was deleted (populate returned null)
+    const validDocs = docs.filter(doc => doc.tripId !== null && doc.tripId !== undefined);
+
+    return this._toDomainArray(validDocs);
+  }
+
+  /**
+   * Find pending payments only for completed trips (trips in the past)
+   * Used to block functionality only for past trips with pending payments
+   * @param {string} passengerId - Passenger ID
+   * @returns {Promise<BookingRequest[]>} Array of bookings with pending payments for completed trips
+   */
+  async findPendingPaymentsForCompletedTrips(passengerId) {
+    const now = new Date();
+    const docs = await BookingRequestModel.find({
+      passengerId,
+      paymentStatus: 'pending', // Only pending payments
+      status: 'accepted', // Only accepted bookings can have pending payments
+      tripId: { $ne: null } // Exclude bookings with deleted trips
+    })
+      .populate('tripId', 'origin destination departureAt estimatedArrivalAt pricePerSeat status')
+      .sort({ createdAt: -1 });
+
+    console.log(`[MongoBookingRequestRepository] findPendingPaymentsForCompletedTrips | passengerId: ${passengerId} | found ${docs.length} bookings with pending payments`);
+
+    // Filter out bookings where trip was deleted and only include completed trips
+    const validDocs = docs.filter(doc => {
+      if (!doc.tripId) {
+        console.log(`[MongoBookingRequestRepository] Filtering out booking ${doc._id} - trip deleted`);
+        return false;
+      }
+      
+      // Include if trip status is 'completed'
+      if (doc.tripId.status === 'completed') {
+        console.log(`[MongoBookingRequestRepository] Including booking ${doc._id} - trip completed`);
+        return true;
+      }
+      
+      // Include if trip's estimated arrival time has passed
+      if (doc.tripId.estimatedArrivalAt) {
+        const arrivalTime = new Date(doc.tripId.estimatedArrivalAt);
+        const isPast = arrivalTime < now;
+        if (isPast) {
+          console.log(`[MongoBookingRequestRepository] Including booking ${doc._id} - trip arrival time passed (${arrivalTime.toISOString()} < ${now.toISOString()})`);
+        }
+        return isPast;
+      }
+      
+      console.log(`[MongoBookingRequestRepository] Filtering out booking ${doc._id} - trip not completed and arrival time not passed`);
+      return false;
+    });
+
+    console.log(`[MongoBookingRequestRepository] findPendingPaymentsForCompletedTrips | returning ${validDocs.length} bookings for completed trips`);
+    return this._toDomainArray(validDocs);
+  }
+
+  /**
+   * Save booking request entity (update existing)
+   * @param {BookingRequest} bookingEntity - Booking entity to save
+   * @returns {Promise<BookingRequest>} Updated booking request
+   */
+  async save(bookingEntity) {
+    const doc = await BookingRequestModel.findByIdAndUpdate(
+      bookingEntity.id,
+      {
+        $set: bookingEntity.toObject()
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!doc) {
+      throw new Error(`Booking request not found: ${bookingEntity.id}`);
+    }
+
+    return this._toDomain(doc);
+  }
+
+  /**
+   * Update payment information for a booking
+   * @param {string} id - Booking request ID
+   * @param {Object} paymentData - Payment data to update
+   * @returns {Promise<BookingRequest>} Updated booking request
+   */
+  async updatePayment(id, paymentData) {
+    const doc = await BookingRequestModel.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          ...paymentData,
+          updatedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    return this._toDomain(doc);
+  }
+
+  /**
+   * Find booking by Stripe payment intent ID
+   * @param {string} paymentIntentId - Stripe payment intent ID
+   * @returns {Promise<BookingRequest|null>}
+   */
+  async findByStripePaymentIntentId(paymentIntentId) {
+    const doc = await BookingRequestModel.findOne({
+      stripePaymentIntentId: paymentIntentId
+    });
+
+    return this._toDomain(doc);
   }
 
 

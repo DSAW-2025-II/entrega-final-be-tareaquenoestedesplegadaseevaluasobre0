@@ -1,94 +1,92 @@
 /**
- * PasswordResetToken Repository Interface
+ * Interfaz de repositorio de token de restablecimiento de contraseña: abstracción a nivel de dominio para operaciones de tokens.
+ * Esta interfaz define el contrato que las implementaciones de infraestructura deben seguir.
  * 
- * Domain-level abstraction for password reset token operations.
- * This interface defines the contract that infrastructure implementations must follow.
- * 
- * Separation of concerns:
- * - Domain layer defines WHAT operations are needed
- * - Infrastructure layer defines HOW they are implemented
+ * Separación de responsabilidades:
+ * - Capa de dominio define QUÉ operaciones se necesitan
+ * - Capa de infraestructura define CÓMO se implementan
  */
 
 class PasswordResetTokenRepository {
   /**
-   * Create a new password reset token
+   * Crea un nuevo token de restablecimiento de contraseña.
    * 
-   * @param {Object} tokenData - Token data
-   * @param {string} tokenData.userId - User ID
-   * @param {string} tokenData.tokenHash - SHA-256 hash
-   * @param {Date} tokenData.expiresAt - Expiry timestamp
-   * @param {string} [tokenData.createdIp] - IP address
+   * @param {Object} tokenData - Datos del token
+   * @param {string} tokenData.userId - ID del usuario
+   * @param {string} tokenData.tokenHash - Hash SHA-256
+   * @param {Date} tokenData.expiresAt - Timestamp de expiración
+   * @param {string} [tokenData.createdIp] - Dirección IP
    * @param {string} [tokenData.createdUa] - User-Agent
-   * @returns {Promise<Object>} - Created token
+   * @returns {Promise<Object>} - Token creado
    */
   async create(tokenData) {
     throw new Error('Method not implemented');
   }
 
   /**
-   * Find token by hash
+   * Busca token por hash.
    * 
-   * @param {string} tokenHash - SHA-256 hash
-   * @returns {Promise<Object|null>} - Token or null
+   * @param {string} tokenHash - Hash SHA-256
+   * @returns {Promise<Object|null>} - Token o null
    */
   async findByHash(tokenHash) {
     throw new Error('Method not implemented');
   }
 
   /**
-   * Find valid (unexpired, unconsumed) token
+   * Busca token válido (no expirado, no consumido).
    * 
-   * @param {string} tokenHash - SHA-256 hash
-   * @returns {Promise<Object|null>} - Valid token or null
+   * @param {string} tokenHash - Hash SHA-256
+   * @returns {Promise<Object|null>} - Token válido o null
    */
   async findValidToken(tokenHash) {
     throw new Error('Method not implemented');
   }
 
   /**
-   * Mark token as consumed (idempotent)
+   * Marca token como consumido (idempotente).
    * 
-   * @param {string} tokenHash - Token hash
-   * @returns {Promise<Object|null>} - Updated token or null
+   * @param {string} tokenHash - Hash del token
+   * @returns {Promise<Object|null>} - Token actualizado o null
    */
   async consumeToken(tokenHash) {
     throw new Error('Method not implemented');
   }
 
   /**
-   * Invalidate all active tokens for user
+   * Invalida todos los tokens activos de un usuario.
    * 
-   * @param {string} userId - User ID
-   * @returns {Promise<number>} - Count of invalidated tokens
+   * @param {string} userId - ID del usuario
+   * @returns {Promise<number>} - Conteo de tokens invalidados
    */
   async invalidateActiveTokens(userId) {
     throw new Error('Method not implemented');
   }
 
   /**
-   * Count active tokens for user
+   * Cuenta tokens activos para un usuario.
    * 
-   * @param {string} userId - User ID
-   * @returns {Promise<number>} - Token count
+   * @param {string} userId - ID del usuario
+   * @returns {Promise<number>} - Conteo de tokens
    */
   async countActiveForUser(userId) {
     throw new Error('Method not implemented');
   }
 
   /**
-   * Clean up expired tokens
+   * Limpia tokens expirados.
    * 
-   * @returns {Promise<number>} - Count deleted
+   * @returns {Promise<number>} - Conteo eliminado
    */
   async cleanupExpired() {
     throw new Error('Method not implemented');
   }
 
   /**
-   * Get all tokens for user (audit/debug)
+   * Obtiene todos los tokens de un usuario (auditoría/debug).
    * 
-   * @param {string} userId - User ID
-   * @returns {Promise<Array>} - Token documents
+   * @param {string} userId - ID del usuario
+   * @returns {Promise<Array>} - Documentos de tokens
    */
   async findByUserId(userId) {
     throw new Error('Method not implemented');

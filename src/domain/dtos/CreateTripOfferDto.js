@@ -1,7 +1,4 @@
-/**
- * Create Trip Offer DTO
- * Data Transfer Object for creating a new trip offer
- */
+// DTO de creación de oferta de viaje: objeto de transferencia de datos para crear nueva oferta de viaje
 class CreateTripOfferDto {
   constructor({
     vehicleId,
@@ -16,7 +13,7 @@ class CreateTripOfferDto {
   }) {
     this.vehicleId = vehicleId;
     this.origin = origin; // { text: string, geo: { lat: number, lng: number } }
-    this.destination = destination; // Same shape
+    this.destination = destination; // Misma estructura
     this.departureAt = departureAt;
     this.estimatedArrivalAt = estimatedArrivalAt;
     this.pricePerSeat = pricePerSeat;
@@ -25,9 +22,7 @@ class CreateTripOfferDto {
     this.notes = notes;
   }
 
-  /**
-   * Create DTO from request body
-   */
+  // Crear DTO desde body de request
   static fromRequest(body) {
     return new CreateTripOfferDto({
       vehicleId: body.vehicleId,
@@ -42,9 +37,7 @@ class CreateTripOfferDto {
     });
   }
 
-  /**
-   * Validate DTO structure
-   */
+  // Validar estructura del DTO
   validate() {
     const errors = [];
 

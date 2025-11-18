@@ -1,3 +1,5 @@
+// Repositorio de vehículos MongoDB: implementación de VehicleRepository para MongoDB
+// Aplica regla de negocio: un vehículo por conductor
 const VehicleRepository = require('../../domain/repositories/VehicleRepository');
 const VehicleModel = require('../database/models/VehicleModel');
 const Vehicle = require('../../domain/entities/Vehicle');
@@ -5,18 +7,8 @@ const OneVehicleRuleError = require('../../domain/errors/OneVehicleRuleError');
 const DuplicatePlateError = require('../../domain/errors/DuplicatePlateError');
 const ValidationError = require('../../domain/errors/ValidationError');
 
-/**
- * MongoDB implementation of VehicleRepository
- * Enforces one-vehicle-per-driver business rule
- */
 class MongoVehicleRepository extends VehicleRepository {
-  /**
-   * Create a new vehicle with concurrency control
-   * @param {Object} vehicleData - Vehicle data
-   * @returns {Promise<Vehicle>} - Created vehicle
-   * @throws {OneVehicleRuleError} - If driver already has a vehicle
-   * @throws {DuplicatePlateError} - If plate already exists
-   */
+  // Crear nuevo vehículo con control de concurrencia: valida regla de un vehículo por conductor y placa única usando transacciones
   async create(vehicleData) {
     const session = await VehicleModel.startSession();
     
@@ -24,7 +16,7 @@ class MongoVehicleRepository extends VehicleRepository {
       let createdVehicle = null;
       
       await session.withTransaction(async () => {
-        // Check if driver already has a vehicle
+        // Verificar si el conductor ya tiene un vehículo
         const existingVehicle = await VehicleModel.findOne({ driverId: vehicleData.driverId }).session(session);
         if (existingVehicle) {
           throw new OneVehicleRuleError(
@@ -34,7 +26,7 @@ class MongoVehicleRepository extends VehicleRepository {
           );
         }
 
-        // Check if plate already exists
+        // Verificar si la placa ya existe
         const plateExists = await VehicleModel.findOne({ plate: vehicleData.plate }).session(session);
         if (plateExists) {
           throw new DuplicatePlateError(
@@ -44,7 +36,7 @@ class MongoVehicleRepository extends VehicleRepository {
           );
         }
 
-        // Create vehicle
+        // Crear vehículo
         const vehicle = new VehicleModel(vehicleData);
         await vehicle.save({ session });
         createdVehicle = vehicle;
@@ -56,12 +48,12 @@ class MongoVehicleRepository extends VehicleRepository {
         throw error;
       }
       
-      // Handle MongoDB unique constraint violations (E11000)
+      // Manejar violaciones de restricción única de MongoDB (E11000)
       if (error.code === 11000 || error.name === 'MongoServerError') {
         const keyPattern = error.keyPattern || {};
         const keyValue = error.keyValue || {};
         
-        // Check which unique constraint was violated
+        // Verificar qué restricción única fue violada
         if (keyPattern.driverId) {
           throw new OneVehicleRuleError(
             'Driver can only have one vehicle',

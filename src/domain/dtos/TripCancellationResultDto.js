@@ -1,12 +1,5 @@
-/**
- * TripCancellationResultDto
- * 
- * Data Transfer Object for trip cancellation cascade effects.
- * Provides summary of affected bookings and refunds triggered.
- * 
- * Used in: DELETE /drivers/trips/:tripId (US-3.4.2)
- */
-
+// DTO de resultado de cancelación de viaje: objeto de transferencia de datos para efectos en cascada de cancelación de viaje
+// Proporciona resumen de reservas afectadas y reembolsos activados
 class TripCancellationResultDto {
   constructor({
     id,
@@ -23,18 +16,7 @@ class TripCancellationResultDto {
     };
   }
 
-  /**
-   * Create DTO from cancellation result
-   * 
-   * @param {string} tripId - Canceled trip ID
-   * @param {string} tripStatus - Final trip status (should be 'canceled')
-   * @param {Object} cascadeEffects - Summary of cascade operations
-   * @param {number} cascadeEffects.declinedAuto - Count of pending bookings auto-declined
-   * @param {number} cascadeEffects.canceledByPlatform - Count of accepted bookings canceled by platform
-   * @param {number} cascadeEffects.refundsCreated - Count of RefundIntents created (US-4.2)
-   * @param {number} cascadeEffects.ledgerReleased - Count of seat ledger releases
-   * @returns {TripCancellationResultDto}
-   */
+  // Crear DTO desde resultado de cancelación
   static fromCancellationResult(tripId, tripStatus, cascadeEffects) {
     return new TripCancellationResultDto({
       id: tripId,

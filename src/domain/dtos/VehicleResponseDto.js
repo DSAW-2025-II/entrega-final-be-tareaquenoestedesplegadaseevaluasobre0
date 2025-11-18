@@ -1,7 +1,5 @@
-/**
- * VehicleResponseDto - Data Transfer Object for vehicle responses
- * Hides internal fields and provides consistent API shape
- */
+// DTO de respuesta de vehículo: objeto de transferencia de datos para respuestas de vehículos
+// Oculta campos internos y proporciona forma consistente de API
 class VehicleResponseDto {
   constructor({
     id,
@@ -25,11 +23,7 @@ class VehicleResponseDto {
     this.updatedAt = updatedAt;
   }
 
-  /**
-   * Create DTO from Vehicle entity
-   * @param {Vehicle} vehicle - Vehicle entity
-   * @returns {VehicleResponseDto} - DTO instance
-   */
+  // Crear DTO desde entidad Vehicle
   static fromEntity(vehicle) {
     return new VehicleResponseDto({
       id: vehicle.id,
@@ -44,11 +38,7 @@ class VehicleResponseDto {
     });
   }
 
-  /**
-   * Create DTO from MongoDB document
-   * @param {Object} doc - MongoDB document
-   * @returns {VehicleResponseDto} - DTO instance
-   */
+  // Crear DTO desde documento MongoDB
   static fromDocument(doc) {
     return new VehicleResponseDto({
       id: doc._id.toString(),

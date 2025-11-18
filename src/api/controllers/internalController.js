@@ -1,14 +1,8 @@
-/**
- * InternalController
- * 
- * Admin-only endpoints for system operations:
- * - Manual job triggers for QA/testing
- * - System health checks
- * - Maintenance tasks
- * 
- * All endpoints require ADMIN role and JWT authentication.
- */
-
+// Controlador interno: endpoints solo para admin para operaciones del sistema
+// - Disparadores manuales de jobs para QA/testing
+// - Verificaciones de salud del sistema
+// - Tareas de mantenimiento
+// Todos los endpoints requieren rol ADMIN y autenticación JWT
 const LifecycleJobService = require('../../domain/services/LifecycleJobService');
 const LifecycleJobResultDto = require('../../domain/dtos/LifecycleJobResultDto');
 const MongoTripOfferRepository = require('../../infrastructure/repositories/MongoTripOfferRepository');
@@ -27,13 +21,13 @@ const DocumentPreview = require('../../infrastructure/database/models/DocumentPr
 
 class InternalController {
   constructor() {
-    // Initialize repositories
+    // Inicializar repositorios
     this.tripOfferRepository = new MongoTripOfferRepository();
     this.bookingRequestRepository = new MongoBookingRequestRepository();
     this.vehicleRepository = new MongoVehicleRepository();
     this.userRepository = new MongoUserRepository();
 
-    // Initialize lifecycle job service
+    // Inicializar servicio de jobs de ciclo de vida
     this.lifecycleJobService = new LifecycleJobService(
       this.tripOfferRepository,
       this.bookingRequestRepository,
@@ -41,13 +35,12 @@ class InternalController {
       this.userRepository
     );
 
-    // Template renderer for admin preview
+    // Renderizador de plantillas para vista previa de admin
     this.templateService = new NotificationTemplateService();
   }
 
   /**
-   * POST /internal/jobs/run?name=complete-trips
-   * 
+   * POST /internal/jobs/run?name=complete-trips: ejecutar job manualmente 
    * Manually trigger lifecycle jobs (US-3.4.4)
    * 
    * Admin-only endpoint for:

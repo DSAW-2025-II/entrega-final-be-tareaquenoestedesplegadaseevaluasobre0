@@ -1,11 +1,9 @@
 /**
- * Invalid Booking State Error (US-4.1.1)
+ * Error de estado de reserva inválido (US-4.1.1): se lanza al intentar crear una intención de pago
+ * para una reserva que no está en estado 'accepted'.
  * 
- * Thrown when attempting to create a payment intent for a booking
- * that is not in the 'accepted' state.
- * 
- * HTTP Status: 409 Conflict
- * Error Code: invalid_booking_state
+ * Estado HTTP: 409 Conflict
+ * Código de error: invalid_booking_state
  */
 
 const DomainError = require('./DomainError');

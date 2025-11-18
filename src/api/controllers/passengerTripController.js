@@ -1,38 +1,37 @@
-/**
- * PassengerTripController
- * 
- * Handles passenger trip search and discovery.
- * Only returns published trips with future departure.
- */
-
+// Controlador de búsqueda de viajes para pasajeros: solo retorna viajes publicados con salida futura
 const MongoTripOfferRepository = require('../../infrastructure/repositories/MongoTripOfferRepository');
 const TripOfferResponseDto = require('../../domain/dtos/TripOfferResponseDto');
+const PaymentService = require('../../domain/services/PaymentService');
+const MongoBookingRequestRepository = require('../../infrastructure/repositories/MongoBookingRequestRepository');
+const Stripe = require('stripe');
 
 class PassengerTripController {
   constructor() {
     this.tripOfferRepository = new MongoTripOfferRepository();
+    this.bookingRequestRepository = new MongoBookingRequestRepository();
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+    this.paymentService = new PaymentService(
+      this.bookingRequestRepository,
+      this.tripOfferRepository,
+      stripe
+    );
   }
 
-  /**
-   * Search published trips (GET /passengers/trips/search)
-   * 
-   * Filters:
-   * - qOrigin: text search in origin (case-insensitive)
-   * - qDestination: text search in destination (case-insensitive)
-   * - fromDate: minimum departure date
-   * - toDate: maximum departure date
-   * - fromTime: minimum departure time (HH:MM format)
-   * - toTime: maximum departure time (HH:MM format)
-   * - minAvailableSeats: minimum available seats required
-   * - minPrice: minimum price per seat
-   * - maxPrice: maximum price per seat
-   * - page: page number (default: 1)
-   * - pageSize: results per page (default: 10, max: 50)
-   * 
-   * Returns only: status='published' AND departureAt > now
-   */
+  // GET /passengers/trips/search: buscar viajes publicados con filtros
   async searchTrips(req, res, next) {
     try {
+      const passengerId = req.user.id || req.user.sub;
+
+      // Verificar pagos pendientes: bloquear búsqueda solo si hay pagos pendientes de viajes completados
+      const pendingPaymentsForCompletedTrips = await this.paymentService.getPendingPaymentsForCompletedTrips(passengerId);
+      if (pendingPaymentsForCompletedTrips.length > 0) {
+        return res.status(403).json({
+          code: 'pending_payments_block',
+          message: 'No puedes buscar nuevos viajes hasta que completes los pagos pendientes de viajes que ya finalizaron',
+          correlationId: req.correlationId
+        });
+      }
+
       const { 
         qOrigin, 
         qDestination, 

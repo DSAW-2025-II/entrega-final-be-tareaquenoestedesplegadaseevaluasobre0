@@ -1,9 +1,5 @@
-/**
- * TripReminderService
- * 
- * Service for sending trip reminders 5 minutes before departure.
- * Should be initialized as a cron job.
- */
+// Servicio de recordatorios de viaje: envía recordatorios 5 minutos antes de la salida
+// Debe inicializarse como un trabajo cron que se ejecute periódicamente
 
 const NotificationService = require('./NotificationService');
 const MongoTripOfferRepository = require('../../infrastructure/repositories/MongoTripOfferRepository');
@@ -17,16 +13,14 @@ class TripReminderService {
     this.bookingRequestRepository = new MongoBookingRequestRepository();
   }
 
-  /**
-   * Check for trips starting in 5 minutes and send reminders
-   * This method should be called by a cron job every minute
-   */
+  // Verificar viajes que inician en 5 minutos y enviar recordatorios
+  // Este método debe ser llamado por un trabajo cron cada minuto
   async checkAndSendReminders() {
     try {
       const now = new Date();
       
-      // Find trips that start between now+4min and now+6min (5min window)
-      // This ensures we catch trips that are ~5 minutes away
+      // Buscar viajes que inician entre ahora+4min y ahora+6min (ventana de 5min)
+      // Esto asegura que capturemos viajes que están aproximadamente a 5 minutos
       const fourMinutesFromNow = new Date(now.getTime() + 4 * 60 * 1000);
       const sixMinutesFromNow = new Date(now.getTime() + 6 * 60 * 1000);
 
@@ -38,7 +32,7 @@ class TripReminderService {
         }
       }).lean();
 
-      // Check if reminders were already sent (avoid duplicates)
+      // Verificar si los recordatorios ya fueron enviados (evitar duplicados)
       const InAppNotification = require('../../infrastructure/database/models/InAppNotificationModel');
       const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
 
@@ -50,7 +44,7 @@ class TripReminderService {
 
       for (const trip of upcomingTrips) {
         try {
-          // Check if reminder was already sent for this trip (within last 5 minutes)
+          // Verificar si el recordatorio ya fue enviado para este viaje (dentro de los últimos 5 minutos)
           const existingReminder = await InAppNotification.findOne({
             type: 'trip.reminder',
             'data.tripId': trip._id.toString(),
@@ -64,7 +58,7 @@ class TripReminderService {
             continue;
           }
 
-          // Get all accepted bookings for this trip
+          // Obtener todas las reservas aceptadas para este viaje
           const acceptedBookings = await BookingRequestModel.find({
             tripId: trip._id,
             status: 'accepted'
@@ -73,13 +67,13 @@ class TripReminderService {
           const passengerIds = acceptedBookings.map(b => b.passengerId.toString());
           const allUserIds = [trip.driverId.toString(), ...passengerIds];
 
-          // Format departure time
+          // Formatear hora de salida
           const departureTime = new Date(trip.departureAt).toLocaleTimeString('es-ES', {
             hour: '2-digit',
             minute: '2-digit'
           });
 
-          // Send notification to driver
+          // Enviar notificación al conductor
           await NotificationService.createNotification(
             trip.driverId.toString(),
             'trip.reminder',
@@ -93,7 +87,7 @@ class TripReminderService {
             }
           );
 
-          // Send notification to all accepted passengers
+          // Enviar notificación a todos los pasajeros aceptados
           if (passengerIds.length > 0) {
             await NotificationService.createNotifications(
               passengerIds,

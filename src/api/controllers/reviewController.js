@@ -1,3 +1,4 @@
+// Controlador de reseñas: maneja creación y gestión de reseñas de viajes
 const mongoose = require('mongoose');
 const ReviewModel = require('../../infrastructure/database/models/ReviewModel');
 const TripOfferModel = require('../../infrastructure/database/models/TripOfferModel');
@@ -7,13 +8,14 @@ const ReviewReportModel = require('../../infrastructure/database/models/ReviewRe
 const ReviewReportCounterModel = require('../../infrastructure/database/models/ReviewReportCounterModel');
 
 class ReviewController {
+  // POST /trips/:tripId/reviews: crear reseña para un viaje completado
   async createReview(req, res, next) {
     try {
       const { tripId } = req.params;
       const { rating, text = '', tags = [] } = req.body;
       const passengerId = req.user.sub;
 
-      // Ensure trip exists and is completed
+      // Verificar que el viaje existe y está completado
       const trip = await TripOfferModel.findById(tripId).lean();
       if (!trip) {
         return res.status(404).json({ code: 'not_found', message: 'Trip not found', correlationId: req.correlationId });
@@ -23,13 +25,13 @@ class ReviewController {
         return res.status(400).json({ code: 'trip_not_completed', message: 'Reviews can only be created for completed trips', correlationId: req.correlationId });
       }
 
-      // Ensure passenger had an accepted booking for this trip
+      // Verificar que el pasajero tuvo una reserva aceptada para este viaje
       const booking = await BookingRequestModel.findOne({ passengerId, tripId, status: 'accepted' });
       if (!booking) {
         return res.status(403).json({ code: 'not_participant', message: 'Only trip participants may write a review', correlationId: req.correlationId });
       }
 
-      // Prevent duplicates at application level (unique index may not be ready in tests)
+      // Prevenir duplicados a nivel de aplicación
       const existing = await ReviewModel.findOne({ passengerId, tripId });
       if (existing) {
         return res.status(409).json({ code: 'review_exists', message: 'Passenger has already reviewed this trip', correlationId: req.correlationId });
@@ -44,7 +46,7 @@ class ReviewController {
         tags
       });
 
-      // Recompute rating aggregates for the driver after creating a new review
+      // Recalcular agregados de calificación del conductor después de crear nueva reseña
       await RatingAggregateService.recomputeAggregate(trip.driverId);
 
       return res.status(201).json({

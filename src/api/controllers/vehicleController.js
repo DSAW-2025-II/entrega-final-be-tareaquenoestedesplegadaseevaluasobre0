@@ -1,30 +1,19 @@
+// Controlador de vehículos: maneja peticiones HTTP para gestión de vehículos
+// Todos los endpoints requieren autenticación (driverId desde JWT)
 const VehicleService = require('../../domain/services/VehicleService');
 const CreateVehicleDto = require('../../domain/dtos/CreateVehicleDto');
 const UpdateVehicleDto = require('../../domain/dtos/UpdateVehicleDto');
 
-/**
- * Vehicle Controller
- * Handles HTTP requests for vehicle management
- * All endpoints require authentication (driverId from JWT)
- */
 class VehicleController {
   constructor() {
     this.vehicleService = new VehicleService();
   }
 
-  /**
-   * POST /api/vehicles
-   * Create a new vehicle for the authenticated driver
-   * Supports multipart/form-data for vehicle and SOAT photos
-   * 
-   * @param {Request} req - Express request with authenticated user
-   * @param {Response} res - Express response
-   * @param {NextFunction} next - Express next middleware
-   */
+  // POST /api/vehicles: crear nuevo vehículo para el conductor autenticado
+  // Soporta multipart/form-data para fotos de vehículo y SOAT
   async createVehicle(req, res, next) {
     try {
-      // Get driverId from authenticated user (req.user.sub from JWT)
-      const driverId = req.user?.sub;
+      const driverId = req.user?.sub; // Desde JWT
 
       if (!driverId) {
         return res.status(401).json({
@@ -33,13 +22,12 @@ class VehicleController {
         });
       }
 
-      // Extract files if multipart request
+      // Extraer archivos si es petición multipart
       const files = {
         vehiclePhoto: req.files?.vehiclePhoto?.[0],
         soatPhoto: req.files?.soatPhoto?.[0]
       };
 
-      // Log incoming request data
       console.log('[VehicleController] Creating vehicle - Request data:', {
         body: req.body,
         files: files ? {
@@ -49,7 +37,7 @@ class VehicleController {
         driverId: driverId
       });
 
-      // Create vehicle DTO from request
+      // Crear DTO de vehículo desde la petición
       const createVehicleDto = CreateVehicleDto.fromMultipart(req.body, files, driverId);
       
       console.log('[VehicleController] DTO created:', {
@@ -59,10 +47,10 @@ class VehicleController {
         capacity: createVehicleDto.capacity
       });
       
-      // Validate DTO
+      // Validar DTO
       createVehicleDto.validate();
 
-      // Create vehicle through service
+      // Crear vehículo mediante servicio
       const vehicle = await this.vehicleService.createVehicle(createVehicleDto);
 
       console.log('[VehicleController] Vehicle created successfully:', {

@@ -1,27 +1,25 @@
 /**
- * MongoSeatLedgerRepository
- * 
- * MongoDB implementation for Seat Ledger operations.
- * Provides atomic, race-safe seat allocation operations.
+ * Repositorio de libro de asientos MongoDB: implementación de operaciones de libro de asientos.
+ * Proporciona operaciones atómicas y seguras ante condiciones de carrera para asignación de asientos.
  */
 
 const SeatLedgerModel = require('../database/models/SeatLedgerModel');
 
 class MongoSeatLedgerRepository {
   /**
-   * Atomically allocate seats for a trip
-   * Race-safe: uses conditional update to prevent over-allocation
+   * Asigna asientos atómicamente para un viaje.
+   * Seguro ante condiciones de carrera: usa actualización condicional para prevenir sobreasignación.
    * 
-   * @param {string} tripId - Trip ObjectId
-   * @param {number} totalSeats - Total seats available on trip
-   * @param {number} seatsToAllocate - Number of seats to allocate
-   * @returns {Promise<Object|null>} Updated ledger or null if capacity exceeded
+   * @param {string} tripId - ObjectId del viaje
+   * @param {number} totalSeats - Total de asientos disponibles en el viaje
+   * @param {number} seatsToAllocate - Número de asientos a asignar
+   * @returns {Promise<Object|null>} Libro actualizado o null si se excedió la capacidad
    */
   async allocateSeats(tripId, totalSeats, seatsToAllocate = 1) {
     const ledger = await SeatLedgerModel.allocateSeats(tripId, totalSeats, seatsToAllocate);
     
     if (!ledger) {
-      return null; // Capacity exceeded
+      return null; // Capacidad excedida
     }
 
     return {
@@ -33,23 +31,23 @@ class MongoSeatLedgerRepository {
   }
 
   /**
-   * Atomically deallocate seats for a trip (free up capacity)
-   * Race-safe: uses conditional update to prevent negative allocation
-   * Used when passenger cancels an accepted booking
+   * Desasigna asientos atómicamente para un viaje (libera capacidad).
+   * Seguro ante condiciones de carrera: usa actualización condicional para prevenir asignación negativa.
+   * Usado cuando un pasajero cancela una reserva aceptada.
    * 
-   * @param {string} tripId - Trip ObjectId
-   * @param {number} seatsToDeallocate - Number of seats to free (default 1)
-   * @returns {Promise<Object|null>} Updated ledger or null if would go negative
+   * @param {string} tripId - ObjectId del viaje
+   * @param {number} seatsToDeallocate - Número de asientos a liberar (por defecto 1)
+   * @returns {Promise<Object|null>} Libro actualizado o null si resultaría negativo
    */
   async deallocateSeats(tripId, seatsToDeallocate = 1) {
-    // Guard: cannot deallocate from non-existent ledger
+    // Guarda: no se puede desasignar de un libro inexistente
     const ledger = await SeatLedgerModel.findOne({ tripId });
     if (!ledger) {
       console.warn(`[SeatLedgerRepository] No ledger found for trip ${tripId}; cannot deallocate`);
       return null;
     }
 
-    // Guard: prevent negative allocatedSeats
+    // Guarda: prevenir allocatedSeats negativo
     if (ledger.allocatedSeats < seatsToDeallocate) {
       console.warn(
         `[SeatLedgerRepository] Cannot deallocate ${seatsToDeallocate} seats from trip ${tripId}; only ${ledger.allocatedSeats} allocated`
@@ -57,23 +55,23 @@ class MongoSeatLedgerRepository {
       return null;
     }
 
-    // Atomic decrement with negative guard
+    // Decremento atómico con guarda de negativos
     const updatedLedger = await SeatLedgerModel.findOneAndUpdate(
       {
         tripId,
-        allocatedSeats: { $gte: seatsToDeallocate } // Guard: ensure we don't go negative
+        allocatedSeats: { $gte: seatsToDeallocate } // Guarda: asegurar que no se vuelva negativo
       },
       {
-        $inc: { allocatedSeats: -seatsToDeallocate } // Decrement atomically
+        $inc: { allocatedSeats: -seatsToDeallocate } // Decrementar atómicamente
       },
       {
-        new: true, // Return updated document
+        new: true, // Retornar documento actualizado
         runValidators: true
       }
     );
 
     if (!updatedLedger) {
-      // Race condition: another operation changed the ledger between our check and update
+      // Condición de carrera: otra operación cambió el libro entre nuestra verificación y actualización
       console.warn(`[SeatLedgerRepository] Race condition prevented deallocation for trip ${tripId}`);
       return null;
     }
@@ -86,11 +84,11 @@ class MongoSeatLedgerRepository {
   }
 
   /**
-   * Get current allocation for a trip
-   * Creates ledger if it doesn't exist
+   * Obtiene la asignación actual para un viaje.
+   * Crea el libro si no existe.
    * 
-   * @param {string} tripId - Trip ObjectId
-   * @returns {Promise<Object>} Current ledger state
+   * @param {string} tripId - ObjectId del viaje
+   * @returns {Promise<Object>} Estado actual del libro
    */
   async getOrCreateLedger(tripId) {
     const ledger = await SeatLedgerModel.getOrCreateLedger(tripId);
@@ -103,10 +101,10 @@ class MongoSeatLedgerRepository {
   }
 
   /**
-   * Get ledger for a trip (returns null if doesn't exist)
+   * Obtiene el libro para un viaje (retorna null si no existe).
    * 
-   * @param {string} tripId - Trip ObjectId
-   * @returns {Promise<Object|null>} Ledger or null
+   * @param {string} tripId - ObjectId del viaje
+   * @returns {Promise<Object|null>} Libro o null
    */
   async getLedgerByTripId(tripId) {
     const ledger = await SeatLedgerModel.getLedgerByTripId(tripId);
@@ -123,18 +121,18 @@ class MongoSeatLedgerRepository {
   }
 
   /**
-   * Check if trip has capacity for seats
+   * Verifica si el viaje tiene capacidad para asientos.
    * 
-   * @param {string} tripId - Trip ObjectId
-   * @param {number} totalSeats - Total seats on trip
-   * @param {number} requestedSeats - Seats requested
-   * @returns {Promise<boolean>} True if has capacity
+   * @param {string} tripId - ObjectId del viaje
+   * @param {number} totalSeats - Total de asientos en el viaje
+   * @param {number} requestedSeats - Asientos solicitados
+   * @returns {Promise<boolean>} True si tiene capacidad
    */
   async hasCapacity(tripId, totalSeats, requestedSeats = 1) {
     const ledger = await SeatLedgerModel.getLedgerByTripId(tripId);
     
     if (!ledger) {
-      // No ledger means no allocations yet
+      // Sin libro significa que aún no hay asignaciones
       return requestedSeats <= totalSeats;
     }
 
@@ -142,27 +140,27 @@ class MongoSeatLedgerRepository {
   }
 
   /**
-   * Get remaining seats for a trip
+   * Obtiene asientos restantes para un viaje.
    * 
-   * @param {string} tripId - Trip ObjectId
-   * @param {number} totalSeats - Total seats on trip
-   * @returns {Promise<number>} Remaining seats
+   * @param {string} tripId - ObjectId del viaje
+   * @param {number} totalSeats - Total de asientos en el viaje
+   * @returns {Promise<number>} Asientos restantes
    */
   async getRemainingSeats(tripId, totalSeats) {
     const ledger = await SeatLedgerModel.getLedgerByTripId(tripId);
     
     if (!ledger) {
-      return totalSeats; // No allocations yet
+      return totalSeats; // Aún no hay asignaciones
     }
 
     return Math.max(0, totalSeats - ledger.allocatedSeats);
   }
 
   /**
-   * Delete ledger (for testing only)
+   * Elimina el libro (solo para testing).
    * 
-   * @param {string} tripId - Trip ObjectId
-   * @returns {Promise<boolean>} True if deleted
+   * @param {string} tripId - ObjectId del viaje
+   * @returns {Promise<boolean>} True si se eliminó
    */
   async delete(tripId) {
     const result = await SeatLedgerModel.findOneAndDelete({ tripId });

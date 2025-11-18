@@ -1,10 +1,5 @@
-/**
- * SeatLedger Domain Entity
- * 
- * Tracks allocated seats per trip for atomic capacity enforcement.
- * Encapsulates business logic for seat allocation and availability.
- */
-
+// Entidad de dominio SeatLedger: rastrea asientos asignados por viaje para aplicación atómica de capacidad
+// Encapsula lógica de negocio para asignación y disponibilidad de asientos
 class SeatLedger {
   constructor({
     id,
@@ -17,16 +12,14 @@ class SeatLedger {
     this.id = id;
     this.tripId = tripId;
     this.allocatedSeats = allocatedSeats;
-    this.bookedPassengers = bookedPassengers; // Array of { bookingRequestId, passengerId, seats, acceptedAt }
+    this.bookedPassengers = bookedPassengers; // Array de { bookingRequestId, passengerId, seats, acceptedAt }
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
 
     this.validate();
   }
 
-  /**
-   * Validate seat ledger invariants
-   */
+  // Validar invariantes del ledger de asientos
   validate() {
     if (!this.tripId) {
       throw new Error('Trip ID is required');
@@ -37,47 +30,28 @@ class SeatLedger {
     }
   }
 
-  /**
-   * Check if there's capacity to allocate seats
-   * @param {number} totalSeats - Total seats available on the trip
-   * @param {number} requestedSeats - Number of seats to allocate
-   * @returns {boolean} True if allocation is possible
-   */
+  // Verificar si hay capacidad para asignar asientos
   hasCapacity(totalSeats, requestedSeats = 1) {
     return this.allocatedSeats + requestedSeats <= totalSeats;
   }
 
-  /**
-   * Get remaining available seats
-   * @param {number} totalSeats - Total seats available on the trip
-   * @returns {number} Number of remaining seats
-   */
+  // Obtener asientos disponibles restantes
   getRemainingSeats(totalSeats) {
     return Math.max(0, totalSeats - this.allocatedSeats);
   }
 
-  /**
-   * Calculate utilization percentage
-   * @param {number} totalSeats - Total seats available on the trip
-   * @returns {number} Utilization percentage (0-100)
-   */
+  // Calcular porcentaje de utilización
   getUtilizationPercentage(totalSeats) {
     if (totalSeats === 0) return 0;
     return Math.round((this.allocatedSeats / totalSeats) * 100);
   }
 
-  /**
-   * Check if trip is fully booked
-   * @param {number} totalSeats - Total seats available on the trip
-   * @returns {boolean} True if no seats available
-   */
+  // Verificar si el viaje está completamente reservado
   isFullyBooked(totalSeats) {
     return this.allocatedSeats >= totalSeats;
   }
 
-  /**
-   * Create a plain object representation (for database persistence)
-   */
+  // Crear representación de objeto plano (para persistencia en base de datos)
   toObject() {
     return {
       id: this.id,

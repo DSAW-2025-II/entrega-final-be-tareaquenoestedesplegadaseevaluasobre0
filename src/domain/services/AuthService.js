@@ -1,76 +1,40 @@
-/**
- * Auth Domain Service
- * 
- * Centralized authentication logic:
- * - Password verification (bcrypt)
- * - JWT signing and verification
- * - Token generation with standard claims
- * 
- * Security:
- * - Never logs credentials or password hashes
- * - Generic error messages (no user enumeration)
- * - Key rotation-ready configuration
- */
-
+// Servicio de dominio de autenticación: lógica centralizada de autenticación
+// - Verificación de contraseñas (bcrypt)
+// - Firma y verificación de JWT
+// - Generación de tokens con claims estándar
+// Seguridad: nunca loguea credenciales ni hashes, mensajes genéricos (sin enumeración de usuarios)
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const ResetTokenUtil = require('../../utils/resetToken');
 
 class AuthService {
   constructor() {
-    // JWT configuration from environment
+    // Configuración JWT desde variables de entorno
     this.jwtSecret = process.env.JWT_SECRET || 'your-secret-key';
     this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '2h';
     this.jwtIssuer = process.env.JWT_ISSUER || 'wheels-unisabana';
     this.jwtAudience = process.env.JWT_AUDIENCE || 'wheels-unisabana-api';
   }
 
-  /**
-   * Verify plaintext password against stored hash
-   * 
-   * @param {string} plainPassword - User-provided password
-   * @param {string} passwordHash - Stored bcrypt hash
-   * @returns {Promise<boolean>} - true if valid, false otherwise
-   * 
-   * Security: Never logs inputs or hashes
-   */
+  // Verificar contraseña en texto plano contra hash almacenado (bcrypt.compare es timing-attack safe)
   async verifyPassword(plainPassword, passwordHash) {
     try {
-      // bcrypt.compare is timing-attack safe
       const isValid = await bcrypt.compare(plainPassword, passwordHash);
       return isValid;
     } catch (error) {
-      // Log error without exposing credentials
       console.error('[AuthService] Password verification failed (internal error)');
       return false;
     }
   }
 
-  /**
-   * Sign access token (JWT) with standard claims
-   * 
-   * @param {Object} payload - Token payload
-   * @param {string} payload.sub - Subject (user ID)
-   * @param {string} payload.role - User role ('passenger' | 'driver')
-   * @param {string} payload.email - User email (for audit/logging)
-   * @returns {string} - Signed JWT
-   * 
-   * Standard JWT claims:
-   * - sub: Subject (user ID)
-   * - role: Custom claim for RBAC
-   * - email: Custom claim for audit
-   * - iat: Issued at (auto-added by jwt.sign)
-   * - exp: Expiration time (auto-added by jwt.sign)
-   * - iss: Issuer
-   * - aud: Audience
-   */
+  // Firmar token de acceso (JWT) con claims estándar
   signAccessToken(payload) {
     try {
       const token = jwt.sign(
         {
-          sub: payload.sub,
-          role: payload.role,
-          email: payload.email
+          sub: payload.sub,      // Subject (ID de usuario)
+          role: payload.role,    // Claim personalizado para RBAC
+          email: payload.email   // Claim personalizado para auditoría
         },
         this.jwtSecret,
         {
@@ -86,18 +50,7 @@ class AuthService {
     }
   }
 
-  /**
-   * Verify access token (JWT)
-   * 
-   * @param {string} token - JWT to verify
-   * @returns {Object} - Decoded payload { sub, role, email, iat, exp, iss, aud }
-   * @throws {Error} - If token is invalid or expired
-   * 
-   * Error types:
-   * - TokenExpiredError: Token has expired
-   * - JsonWebTokenError: Token is malformed or signature invalid
-   * - NotBeforeError: Token used before nbf claim
-   */
+  // Verificar token de acceso (JWT)
   verifyAccessToken(token) {
     try {
       const decoded = jwt.verify(token, this.jwtSecret, {

@@ -1,12 +1,10 @@
 /**
- * InvalidTransitionError
+ * Error de transición inválida: se lanza al intentar una transición de estado ilegal.
+ * Usado para validaciones de ciclo de vida tanto de TripOffer como de BookingRequest.
  * 
- * Thrown when attempting an illegal state transition.
- * Used for both TripOffer and BookingRequest lifecycle validations.
- * 
- * Example:
+ * Ejemplo:
  *   throw new InvalidTransitionError(
- *     'Cannot cancel a completed trip',
+ *     'No se puede cancelar un viaje completado',
  *     'completed',
  *     'canceled'
  *   );
@@ -16,10 +14,10 @@ const DomainError = require('./DomainError');
 
 class InvalidTransitionError extends DomainError {
   /**
-   * @param {string} message - Human-readable error message
-   * @param {string} currentState - Current state of the entity
-   * @param {string} attemptedState - State that was attempted
-   * @param {number} statusCode - HTTP status code (default: 409 Conflict)
+   * @param {string} message - Mensaje de error legible por humanos
+   * @param {string} currentState - Estado actual de la entidad
+   * @param {string} attemptedState - Estado que se intentó
+   * @param {number} statusCode - Código de estado HTTP (por defecto: 409 Conflict)
    */
   constructor(message, currentState, attemptedState, statusCode = 409) {
     super(message, 'invalid_transition', statusCode);
@@ -29,8 +27,8 @@ class InvalidTransitionError extends DomainError {
   }
 
   /**
-   * Get details object for API response
-   * @returns {Object} Transition details
+   * Obtiene objeto de detalles para respuesta de API.
+   * @returns {Object} Detalles de la transición
    */
   getDetails() {
     return {

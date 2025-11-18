@@ -1,6 +1,7 @@
+// Esquemas de validación de usuario (Joi): validan registro y actualización de perfil
 const Joi = require('joi');
 
-// Schema para validación de registro de usuario
+// Esquema para registro de usuario: firstName, lastName, corporateEmail (@unisabana.edu.co), universityId (6-10 dígitos), phone (E.164), password (mínimo 8 caracteres), role (passenger/driver)
 const createUserSchema = Joi.object({
   firstName: Joi.string()
     .trim()
@@ -68,18 +69,10 @@ const createUserSchema = Joi.object({
     })
 });
 
-/**
- * Schema para validación de actualización parcial de perfil
- * Solo permite campos de la allow-list: firstName, lastName, phone
- * Campos inmutables (corporateEmail, universityId, role) son rechazados en el controller
- * 
- * NOTA: NO usamos stripUnknown aquí porque necesitamos que los campos inmutables
- * lleguen al controller para generar el error 403 correspondiente.
- * 
- * NOTA 2: profilePhoto es manejado por multer (req.file), no por Joi (req.body).
- * Por lo tanto, si solo se sube foto sin campos de texto, req.body estará vacío
- * y eso es válido (el controller verificará req.file).
- */
+// Esquema para actualización parcial de perfil: solo permite firstName, lastName, phone
+// Campos inmutables (corporateEmail, universityId, role) son rechazados en el controller
+// Nota: no usamos stripUnknown porque necesitamos que los campos inmutables lleguen al controller para generar el error 403
+// profilePhoto es manejado por multer (req.file), no por Joi (req.body)
 const updateProfileSchema = Joi.object({
   firstName: Joi.string()
     .trim()

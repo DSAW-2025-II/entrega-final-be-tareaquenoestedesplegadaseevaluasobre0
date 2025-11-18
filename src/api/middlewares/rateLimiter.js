@@ -1,9 +1,7 @@
+// Rate limiters: limitadores de tasa para prevenir abuso y ataques de fuerza bruta
 const rateLimit = require('express-rate-limit');
 
-/**
- * Rate limiter para rutas públicas (registro)
- * 10 requests por minuto por IP
- */
+// Rate limiter para rutas públicas (registro): 10 requests por minuto por IP
 const publicRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
   max: 10, // máximo 10 requests por IP por ventana
@@ -19,10 +17,7 @@ const publicRateLimiter = rateLimit({
   }
 });
 
-/**
- * Rate limiter más permisivo para otras rutas
- * 100 requests por minuto por IP
- */
+// Rate limiter más permisivo para otras rutas: 100 requests por minuto por IP
 const generalRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
   max: 100, // máximo 100 requests por IP por ventana
@@ -38,11 +33,8 @@ const generalRateLimiter = rateLimit({
   }
 });
 
-/**
- * Rate limiter estricto para login
- * 5 requests por minuto por IP
- * Previene brute-force attacks
- */
+// Rate limiter estricto para login: 5 requests por minuto por IP
+// Previene ataques de fuerza bruta
 const loginRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
   max: 5, // máximo 5 intentos de login por IP por ventana
@@ -52,9 +44,9 @@ const loginRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: false, // Count all requests (success or fail)
+  skipSuccessfulRequests: false, // Contar todas las peticiones (éxito o fallo)
   keyGenerator: (req) => {
-    // Rate limit by IP
+    // Rate limit por IP
     return req.ip;
   },
   skip: (req) => {
@@ -63,16 +55,11 @@ const loginRateLimiter = rateLimit({
   }
 });
 
-/**
- * Rate limiter for password reset requests
- * 3 requests per 15 minutes per IP
- * Prevents abuse of reset functionality
- * 
- * Security: Soft rate limit (generic 429 response)
- */
+// Rate limiter para solicitudes de restablecimiento de contraseña: 3 requests por 15 minutos por IP
+// Previene abuso de funcionalidad de restablecimiento
 const passwordResetRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 3, // Maximum 3 reset requests per IP per window
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 3, // Máximo 3 solicitudes de restablecimiento por IP por ventana
   message: {
     code: 'too_many_attempts',
     message: 'Please try again later'

@@ -1,16 +1,11 @@
-/**
- * DriverController
- * 
- * Driver-specific endpoints for trip and booking management.
- * All endpoints require JWT authentication and driver role.
- */
-
+// Controlador de conductor: endpoints específicos para gestión de viajes y reservas
+// Todos los endpoints requieren autenticación JWT y rol de conductor
 const BookingRequestService = require('../../domain/services/BookingRequestService');
 const MongoBookingRequestRepository = require('../../infrastructure/repositories/MongoBookingRequestRepository');
 const MongoTripOfferRepository = require('../../infrastructure/repositories/MongoTripOfferRepository');
 const MongoSeatLedgerRepository = require('../../infrastructure/repositories/MongoSeatLedgerRepository');
 
-// Initialize services
+// Inicializar servicios
 const bookingRequestRepository = new MongoBookingRequestRepository();
 const tripOfferRepository = new MongoTripOfferRepository();
 const seatLedgerRepository = new MongoSeatLedgerRepository();
@@ -25,14 +20,7 @@ const crypto = require('crypto');
 const { verificationUpload } = require('../middlewares/uploadMiddleware');
 
 class DriverController {
-  /**
-   * GET /drivers/trips/:tripId/capacity
-   * 
-   * Returns a capacity snapshot for a driver's trip.
-   * Owner-only. No CSRF required (read-only).
-   * 
-   * Response: { totalSeats, allocatedSeats, remainingSeats }
-   */
+  // GET /drivers/trips/:tripId/capacity: obtener snapshot de capacidad de un viaje del conductor
   async getTripCapacitySnapshot(req, res, next) {
     try {
       const { tripId } = req.params;
@@ -42,20 +30,20 @@ class DriverController {
         `[DriverController] Capacity snapshot | tripId: ${tripId} | driverId: ${driverId}`
       );
 
-      // 1) Load trip
+      // Cargar viaje
       const trip = await tripOfferRepository.findById(tripId);
       if (!trip) {
         const DomainError = require('../../domain/errors/DomainError');
         return next(new DomainError('Trip offer not found', 'trip_not_found', 404));
       }
 
-      // 2) Ownership check
+      // Verificar propiedad
       if (trip.driverId !== driverId) {
         const DomainError = require('../../domain/errors/DomainError');
         return next(new DomainError('Trip does not belong to the driver', 'forbidden_owner', 403));
       }
 
-      // 3) Get current ledger (may be null if no allocations yet)
+      // Obtener ledger actual (puede ser null si no hay asignaciones aún)
       const ledger = await seatLedgerRepository.getLedgerByTripId(tripId);
       const allocatedSeats = ledger ? ledger.allocatedSeats : 0;
       const totalSeats = trip.totalSeats;
@@ -66,13 +54,8 @@ class DriverController {
       return next(err);
     }
   }
-  /**
-   * POST /drivers/booking-requests/:bookingId/decline
-   * 
-   * Decline a pending booking request.
-   * Idempotent: if already declined, returns 200 with declined status.
-   * Enforces ownership; no seat ledger changes required.
-   */
+  
+  // POST /drivers/booking-requests/:bookingId/decline: rechazar solicitud de reserva pendiente
   async declineBookingRequest(req, res, next) {
     try {
       const { bookingId } = req.params;

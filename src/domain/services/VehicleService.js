@@ -1,3 +1,5 @@
+// Servicio de vehículos: lógica de negocio para operaciones de vehículos
+// Aplica regla de negocio: un vehículo por conductor
 const MongoVehicleRepository = require('../../infrastructure/repositories/MongoVehicleRepository');
 const CreateVehicleDto = require('../dtos/CreateVehicleDto');
 const UpdateVehicleDto = require('../dtos/UpdateVehicleDto');
@@ -5,32 +7,14 @@ const VehicleResponseDto = require('../dtos/VehicleResponseDto');
 const OneVehicleRuleError = require('../errors/OneVehicleRuleError');
 const DuplicatePlateError = require('../errors/DuplicatePlateError');
 
-/**
- * VehicleService - Business logic for vehicle operations
- * Enforces one-vehicle-per-driver business rule
- */
 class VehicleService {
   constructor() {
     this.vehicleRepository = new MongoVehicleRepository();
   }
 
-  /**
-   * Create a new vehicle for a driver
-   * @param {CreateVehicleDto} createVehicleDto - Vehicle creation DTO
-   * @returns {Promise<VehicleResponseDto>} - Created vehicle response
-   * @throws {OneVehicleRuleError} - If driver already has a vehicle
-   * @throws {DuplicatePlateError} - If plate already exists
-   */
+  // Crear nuevo vehículo para un conductor: valida regla de un vehículo por conductor y placa única
   async createVehicle(createVehicleDto) {
-    console.log('[VehicleService] Creating vehicle with data:', {
-      driverId: createVehicleDto.driverId,
-      plate: createVehicleDto.plate,
-      brand: createVehicleDto.brand,
-      model: createVehicleDto.model,
-      capacity: createVehicleDto.capacity
-    });
-
-    // Check if driver already has a vehicle
+    // Verificar si el conductor ya tiene un vehículo
     const hasVehicle = await this.vehicleRepository.driverHasVehicle(createVehicleDto.driverId);
     if (hasVehicle) {
       throw new OneVehicleRuleError(
@@ -40,7 +24,7 @@ class VehicleService {
       );
     }
 
-    // Check if plate already exists
+    // Verificar si la placa ya existe
     const plateExists = await this.vehicleRepository.plateExists(createVehicleDto.plate);
     if (plateExists) {
       throw new DuplicatePlateError(
@@ -50,57 +34,54 @@ class VehicleService {
       );
     }
 
-    // Create vehicle in repository
+    // Crear vehículo en el repositorio
     const vehicleData = createVehicleDto.toObject();
-    console.log('[VehicleService] Vehicle data to save:', vehicleData);
     const vehicle = await this.vehicleRepository.create(vehicleData);
-    console.log('[VehicleService] Vehicle created in repository:', {
-      id: vehicle.id,
-      plate: vehicle.plate,
-      brand: vehicle.brand,
-      model: vehicle.model,
-      capacity: vehicle.capacity
-    });
     
     const responseDto = VehicleResponseDto.fromEntity(vehicle);
-    console.log('[VehicleService] Response DTO:', {
-      id: responseDto.id,
-      plate: responseDto.plate,
-      brand: responseDto.brand,
-      model: responseDto.model,
-      capacity: responseDto.capacity
-    });
-    
     return responseDto;
   }
 
-  /**
-   * Get vehicle by driver ID
-   * @param {string} driverId - Driver ID
-   * @returns {Promise<VehicleResponseDto|null>} - Vehicle response or null
-   */
+  // Obtener vehículo por ID de conductor
   async getVehicleByDriverId(driverId) {
     const vehicle = await this.vehicleRepository.findByDriverId(driverId);
     return vehicle ? VehicleResponseDto.fromEntity(vehicle) : null;
   }
 
-  /**
-   * Update vehicle by driver ID
-   * @param {string} driverId - Driver ID
-   * @param {UpdateVehicleDto} updateVehicleDto - Vehicle update DTO
-   * @returns {Promise<VehicleResponseDto|null>} - Updated vehicle response or null
-   */
+  // Actualizar vehículo por ID de conductor: elimina fotos antiguas si se proporcionan nuevas, valida placa duplicada
   async updateVehicle(driverId, updateVehicleDto) {
-    // Check if vehicle exists
+    // Verificar si el vehículo existe
     const existingVehicle = await this.vehicleRepository.findByDriverId(driverId);
     if (!existingVehicle) {
       return null;
     }
 
-    // Get update data
+    // Obtener datos de actualización
     const updateData = updateVehicleDto.toObject();
 
-    // Delete old photos if new ones are provided
+    // Si se está actualizando la placa, validar que no sea la misma y que no esté duplicada
+    if (updateData.plate) {
+      // Validar que la nueva placa no sea la misma que la actual
+      if (updateData.plate === existingVehicle.plate) {
+        throw new DuplicatePlateError(
+          'New plate must be different from current plate',
+          'same_plate',
+          { plate: updateData.plate }
+        );
+      }
+      
+      // Validar que la nueva placa no esté registrada por otro conductor
+      const plateExists = await this.vehicleRepository.plateExists(updateData.plate, existingVehicle.id);
+      if (plateExists) {
+        throw new DuplicatePlateError(
+          'Vehicle plate already exists',
+          'duplicate_plate',
+          { plate: updateData.plate }
+        );
+      }
+    }
+
+    // Eliminar fotos antiguas si se proporcionan nuevas
     if (updateData.vehiclePhotoUrl && existingVehicle.vehiclePhotoUrl) {
       const fs = require('fs').promises;
       const path = require('path');
@@ -123,28 +104,24 @@ class VehicleService {
       }
     }
 
-    // Update vehicle
+    // Actualizar vehículo
     const updatedVehicle = await this.vehicleRepository.updateByDriverId(driverId, updateData);
     return updatedVehicle ? VehicleResponseDto.fromEntity(updatedVehicle) : null;
   }
 
-  /**
-   * Delete vehicle by driver ID
-   * @param {string} driverId - Driver ID
-   * @returns {Promise<boolean>} - True if deleted
-   */
+  // Eliminar vehículo por ID de conductor: limpia imágenes después de la eliminación
   async deleteVehicle(driverId) {
     try {
-      // Get vehicle to cleanup images
+      // Obtener vehículo para limpiar imágenes
       const vehicle = await this.vehicleRepository.findByDriverId(driverId);
       if (!vehicle) {
         return false;
       }
 
-      // Delete vehicle
+      // Eliminar vehículo
       const deleted = await this.vehicleRepository.deleteByDriverId(driverId);
 
-      // Cleanup images after successful deletion
+      // Limpiar imágenes después de la eliminación exitosa
       if (deleted) {
         const fs = require('fs').promises;
         const path = require('path');
@@ -174,11 +151,7 @@ class VehicleService {
     }
   }
 
-  /**
-   * Check if driver has a vehicle
-   * @param {string} driverId - Driver ID
-   * @returns {Promise<boolean>} - True if driver has vehicle
-   */
+  // Verificar si el conductor tiene un vehículo
   async driverHasVehicle(driverId) {
     return await this.vehicleRepository.driverHasVehicle(driverId);
   }

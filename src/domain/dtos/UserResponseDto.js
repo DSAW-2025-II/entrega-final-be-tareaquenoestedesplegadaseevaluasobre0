@@ -20,7 +20,7 @@ class UserResponseDto {
     this.role = role;
     this.profilePhotoUrl = profilePhotoUrl; // URL, no path interno
     
-    // Si es driver, incluir objeto driver
+    // Si es conductor, incluir objeto driver
     if (role === 'driver') {
       this.driver = {
         hasVehicle: false // Por defecto false en registro inicial
@@ -31,7 +31,7 @@ class UserResponseDto {
     this.updatedAt = updatedAt;
   }
 
-  // Método estático para crear desde entidad User
+  // Crear desde entidad User
   static fromEntity(user) {
     return new UserResponseDto({
       id: user.id,
@@ -47,7 +47,7 @@ class UserResponseDto {
     });
   }
 
-  // Método estático para crear desde documento MongoDB
+  // Crear desde documento MongoDB
   static fromDocument(doc) {
     return new UserResponseDto({
       id: doc._id.toString(), // Convertir _id a id

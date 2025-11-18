@@ -1,24 +1,9 @@
-/**
- * NotificationService
- * 
- * Service for creating in-app notifications automatically.
- * Handles notification creation with proper error handling (failures don't break main flow).
- */
-
+// Servicio de notificaciones: crea notificaciones en la aplicación automáticamente
+// Maneja la creación de notificaciones con manejo de errores adecuado (los fallos no interrumpen el flujo principal)
 const InAppNotification = require('../../infrastructure/database/models/InAppNotificationModel');
 
 class NotificationService {
-  /**
-   * Create an in-app notification
-   * 
-   * @param {string} userId - User ID to notify
-   * @param {string} type - Notification type (e.g., 'booking.accepted', 'trip.canceled')
-   * @param {string} title - Notification title
-   * @param {string} body - Notification body/message
-   * @param {Object} data - Additional data/metadata
-   * @param {string} correlationId - Optional correlation ID for tracking
-   * @returns {Promise<Object|null>} Created notification or null if failed
-   */
+  // Crear notificación en la aplicación: userId, type, title, body (opcional), data (opcional), correlationId (opcional)
   static async createNotification(userId, type, title, body = '', data = {}, correlationId = null) {
     try {
       if (!userId || !type || !title) {
@@ -36,26 +21,16 @@ class NotificationService {
         isRead: false
       });
 
-      console.log(`[NotificationService] Notification created | userId: ${userId} | type: ${type} | id: ${notification._id}`);
       return notification;
     } catch (error) {
-      // Don't throw - notification failures shouldn't break main business logic
+      // No lanzar error - los fallos de notificación no deben interrumpir la lógica de negocio principal
       console.error(`[NotificationService] Failed to create notification | userId: ${userId} | type: ${type}`, error.message);
       return null;
     }
   }
 
-  /**
-   * Create multiple notifications (e.g., when a trip is canceled for all passengers)
-   * 
-   * @param {Array<string>} userIds - Array of user IDs to notify
-   * @param {string} type - Notification type
-   * @param {string} title - Notification title
-   * @param {string} body - Notification body/message
-   * @param {Object} data - Additional data/metadata
-   * @param {string} correlationId - Optional correlation ID
-   * @returns {Promise<number>} Number of notifications successfully created
-   */
+  // Crear múltiples notificaciones (ej: cuando se cancela un viaje para todos los pasajeros)
+  // Retorna el número de notificaciones creadas exitosamente
   static async createNotifications(userIds, type, title, body = '', data = {}, correlationId = null) {
     if (!Array.isArray(userIds) || userIds.length === 0) {
       return 0;
@@ -75,9 +50,8 @@ class NotificationService {
     try {
       const result = await InAppNotification.insertMany(notifications, { ordered: false });
       successCount = result.length;
-      console.log(`[NotificationService] Created ${successCount} notifications | type: ${type} | total users: ${userIds.length}`);
     } catch (error) {
-      // insertMany may partially succeed - count successful insertions
+      // insertMany puede tener éxito parcial - contar inserciones exitosas
       if (error.writeErrors) {
         successCount = userIds.length - error.writeErrors.length;
         console.warn(`[NotificationService] Partial success creating notifications | succeeded: ${successCount} | failed: ${error.writeErrors.length}`);

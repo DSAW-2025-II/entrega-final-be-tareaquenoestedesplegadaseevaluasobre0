@@ -1,46 +1,17 @@
-/**
- * Allow-List Validator Middleware for PATCH /users/me
- * 
- * Single source of truth para campos permitidos/inmutables/desconocidos
- * 
- * ALLOW-LIST (campos permitidos para actualización):
- * - firstName
- * - lastName
- * - phone
- * - profilePhoto (manejado por upload adapter, no en body)
- * 
- * IMMUTABLE (campos prohibidos, generan 403):
- * - corporateEmail
- * - universityId
- * - role
- * - id
- * - password
- * 
- * UNKNOWN (campos desconocidos, generan 400):
- * - Cualquier otro campo no listado arriba
- */
+// Middleware de validación de allow-list para PATCH /users/me
+// Fuente única de verdad para campos permitidos/inmutables/desconocidos
+// ALLOW-LIST: firstName, lastName, phone, profilePhoto (manejado por upload adapter)
+// IMMUTABLE: corporateEmail, universityId, role, id, password
+// UNKNOWN: cualquier otro campo no listado arriba
 
-// SINGLE SOURCE OF TRUTH - Allow-list de campos
+// Fuente única de verdad - Allow-list de campos
 const ALLOWED_FIELDS = ['firstName', 'lastName', 'phone'];
 
-// SINGLE SOURCE OF TRUTH - Immutable fields
+// Fuente única de verdad - Campos inmutables
 const IMMUTABLE_FIELDS = ['corporateEmail', 'universityId', 'role', 'id', 'password'];
 
-/**
- * Middleware para validar allow-list en PATCH /users/me
- * 
- * Valida que:
- * 1. No se intenten modificar campos inmutables → 403 immutable_field
- * 2. No se envíen campos desconocidos → 400 invalid_schema
- * 3. Solo se permitan campos de la allow-list
- * 
- * NOTA: profilePhoto es manejado por el upload adapter (multer),
- * por lo que NO aparece en req.body sino en req.file
- * 
- * @param {Object} req - Express request
- * @param {Object} res - Express response
- * @param {Function} next - Next middleware
- */
+// Validar allow-list en PATCH /users/me
+// Valida que no se modifiquen campos inmutables (403) y no se envíen campos desconocidos (400)
 const validateAllowList = (req, res, next) => {
   try {
     // Obtener todas las keys del body (sin considerar req.file)

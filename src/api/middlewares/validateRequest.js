@@ -1,13 +1,10 @@
+// Middleware para validar request body/query/params con Joi
 const Joi = require('joi');
 
-/**
- * Middleware para validar request body con Joi
- * @param {Joi.ObjectSchema} schema - Schema de Joi para validación
- * @param {string} property - Propiedad del request a validar ('body', 'query', 'params')
- */
+// Validar propiedad del request (body, query o params) con esquema Joi
 const validateRequest = (schema, property = 'body') => {
   return (req, res, next) => {
-    // Use schema options if defined, otherwise use defaults
+    // Usar opciones del esquema si están definidas, de lo contrario usar valores por defecto
     const { error, value } = schema.validate(req[property]);
 
     if (error) {

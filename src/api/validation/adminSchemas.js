@@ -154,6 +154,15 @@ const updateReportStatusSchema = Joi.object({
 module.exports.listReportsQuery = listReportsQuery;
 module.exports.updateReportStatusSchema = updateReportStatusSchema;
 
+const listReviewReportsQuery = Joi.object({
+  category: Joi.string().valid('abuse', 'spam', 'fraud', 'other').optional(),
+  page: Joi.number().integer().min(1).default(1).optional(),
+  pageSize: Joi.number().integer().min(1).max(100).default(25).optional(),
+  sort: Joi.string().optional()
+}).concat(paginationQuery).options({ abortEarly: false, stripUnknown: true });
+
+module.exports.listReviewReportsQuery = listReviewReportsQuery;
+
 const sendMessageToUserSchema = Joi.object({
   title: Joi.string().min(3).max(200).required(),
   message: Joi.string().min(10).max(2000).required()

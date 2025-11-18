@@ -1,10 +1,5 @@
-/**
- * Driver Routes
- * 
- * Driver-specific endpoints for trip and booking management.
- * All routes require JWT authentication and driver role.
- */
-
+// Rutas de conductor: endpoints específicos para gestión de viajes y reservas
+// Todas las rutas requieren autenticación JWT y rol de conductor
 const express = require('express');
 const router = express.Router();
 
@@ -24,23 +19,13 @@ const reviewController = new ReviewController();
 const { verificationUpload, handleUploadError, cleanupOnError } = require('../middlewares/uploadMiddleware');
 
 /**
- * @route   GET /drivers/trips/:tripId/booking-requests
- * @desc    List booking requests for a specific trip owned by the driver
- * @access  Private (Driver only)
- * @query   {string|string[]} status - Optional status filter (pending, accepted, declined, canceled_by_passenger, expired)
- * @query   {number} page - Optional page number (default: 1)
- * @query   {number} pageSize - Optional page size (default: 10, max: 50)
- */
-/**
+ * GET /drivers/trips/:tripId/booking-requests: listar solicitudes de reserva para un viaje específico del conductor
  * @openapi
  * /drivers/trips/{tripId}/booking-requests:
  *   get:
- *     tags:
- *       - Trip Offers
- *     summary: List booking requests for my trip (Driver)
- *     description: |
- *       Returns booking requests for a trip owned by the authenticated driver.
- *       Supports filtering by status and pagination.
+ *     summary: List booking requests for a trip
+ *     description: Lists all booking requests for a specific trip owned by the authenticated driver
+ *     tags: [Driver]
  *     security:
  *       - cookieAuth: []
  *     parameters:

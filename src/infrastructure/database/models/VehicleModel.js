@@ -1,9 +1,7 @@
+// Modelo de vehículo: schema de Mongoose para vehículos de conductores
+// Aplica regla de negocio: un vehículo por conductor (índice único en driverId)
 const mongoose = require('mongoose');
 
-/**
- * Vehicle Mongoose Schema
- * Enforces one-vehicle-per-driver business rule
- */
 const vehicleSchema = new mongoose.Schema({
   driverId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -54,7 +52,7 @@ const vehicleSchema = new mongoose.Schema({
   strictQuery: false
 });
 
-// Pre-save middleware to normalize data
+// Middleware pre-save para normalizar datos: placa a mayúsculas, trim de brand y model
 vehicleSchema.pre('save', function(next) {
   // Normalize plate to uppercase
   if (this.plate) {
@@ -72,11 +70,11 @@ vehicleSchema.pre('save', function(next) {
   next();
 });
 
-// CRITICAL: Unique index on driverId to enforce one-vehicle-per-driver at DB level
-// This prevents race conditions even without transactions
+// Índice único en driverId para aplicar regla de un vehículo por conductor a nivel de BD
+// Previene condiciones de carrera incluso sin transacciones
 vehicleSchema.index({ driverId: 1 }, { unique: true });
 
-// Compound index for driver + plate uniqueness (additional safety)
+// Índice compuesto para unicidad de conductor + placa (seguridad adicional)
 vehicleSchema.index({ driverId: 1, plate: 1 }, { unique: true });
 
 // Static method to check if driver has vehicle

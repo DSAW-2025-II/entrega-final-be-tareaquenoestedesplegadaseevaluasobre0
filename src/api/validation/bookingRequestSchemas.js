@@ -1,10 +1,7 @@
+// Esquemas de validación de solicitudes de reserva (Joi): validan creación, listado y cancelación de reservas
 const Joi = require('joi');
 
-/**
- * Validation schemas for Booking Request endpoints
- */
-
-// Schema for creating a booking request
+// Esquema para crear solicitud de reserva: tripId (ObjectId), note (opcional, máx 300 caracteres), seats (>=1, por defecto 1)
 const createBookingRequestSchema = Joi.object({
   tripId: Joi.string()
     .pattern(/^[a-f\d]{24}$/i)
@@ -37,7 +34,7 @@ const createBookingRequestSchema = Joi.object({
   stripUnknown: true
 });
 
-// Schema for listing booking requests (query parameters)
+// Esquema para listar solicitudes de reserva (parámetros de consulta): status (pending/canceled_by_passenger/accepted/declined/expired), fromDate, toDate (después de fromDate), page (>=1), pageSize (1-50)
 const listBookingRequestsQuerySchema = Joi.object({
   status: Joi.alternatives()
     .try(
@@ -95,7 +92,7 @@ const listBookingRequestsQuerySchema = Joi.object({
   stripUnknown: true
 });
 
-// Schema for bookingId parameter
+// Esquema para parámetro de ID de reserva: bookingId (ObjectId MongoDB)
 const bookingIdParamSchema = Joi.object({
   bookingId: Joi.string()
     .pattern(/^[a-f\d]{24}$/i)
@@ -108,7 +105,7 @@ const bookingIdParamSchema = Joi.object({
   abortEarly: false
 });
 
-// Schema for driver trip booking requests query (GET /drivers/trips/:tripId/booking-requests)
+// Esquema para consulta de solicitudes de reserva de viaje del conductor: status (pending/accepted/declined/canceled_by_passenger/expired), page (>=1), pageSize (1-50)
 const driverTripBookingRequestsQuerySchema = Joi.object({
   status: Joi.alternatives()
     .try(
@@ -146,7 +143,7 @@ const driverTripBookingRequestsQuerySchema = Joi.object({
   stripUnknown: true
 });
 
-// Schema for tripId parameter
+// Esquema para parámetro de ID de viaje: tripId (ObjectId MongoDB)
 const tripIdParamSchema = Joi.object({
   tripId: Joi.string()
     .pattern(/^[a-f\d]{24}$/i)
@@ -159,10 +156,7 @@ const tripIdParamSchema = Joi.object({
   abortEarly: false
 });
 
-/**
- * Schema for canceling a booking request (US-3.4.3)
- * POST /passengers/bookings/:bookingId/cancel
- */
+// Esquema para cancelar solicitud de reserva: reason (opcional, máx 500 caracteres)
 const cancelBookingRequestSchema = Joi.object({
   reason: Joi.string()
     .trim()

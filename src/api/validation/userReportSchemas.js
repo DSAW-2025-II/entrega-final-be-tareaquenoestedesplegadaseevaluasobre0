@@ -1,5 +1,7 @@
+// Esquemas de validación de reportes de usuario (Joi): validan reportes de usuarios
 const Joi = require('joi');
 
+// Esquema para reportar usuario: tripId (ObjectId requerido), category (abuse/harassment/fraud/no_show/unsafe_behavior/other requerido), reason (opcional, máx 500 caracteres)
 const reportUserSchema = Joi.object({
   tripId: Joi.string()
     .pattern(/^[a-f\d]{24}$/i)

@@ -2,13 +2,12 @@ const mongoose = require('mongoose');
 const ReviewModel = require('../../infrastructure/database/models/ReviewModel');
 const DriverRatingAggregate = require('../../infrastructure/database/models/DriverRatingAggregateModel');
 
+// Servicio de agregación de calificaciones: recalcula agregados de calificaciones de conductores
 class RatingAggregateService {
-  /**
-   * Recompute aggregates for a driver by scanning visible reviews and upserting the aggregate doc.
-   * If a session is supplied, the upsert runs within that session.
-   */
+  // Recalcular agregados para un conductor escaneando reseñas visibles y actualizando el documento agregado
+  // Si se proporciona una sesión, el upsert se ejecuta dentro de esa sesión
   static async recomputeAggregate(driverId, session = null) {
-    // Aggregation: match visible reviews for driver, group by rating
+    // Agregación: hacer match de reseñas visibles para el conductor, agrupar por calificación
     const driverObjId = mongoose.Types.ObjectId.isValid(driverId) ? new mongoose.Types.ObjectId(driverId) : driverId;
     const pipeline = [
       { $match: { driverId: driverObjId, status: 'visible' } },
@@ -17,7 +16,7 @@ class RatingAggregateService {
 
     const results = await ReviewModel.aggregate(pipeline).exec();
 
-    // Build histogram and compute totals
+    // Construir histograma y calcular totales
     const histogram = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
     let total = 0;
     let sum = 0;
@@ -49,9 +48,7 @@ class RatingAggregateService {
     return DriverRatingAggregate.findOneAndUpdate({ driverId }, update, opts).lean();
   }
 
-  /**
-   * Get aggregate document; if missing, recompute on the fly.
-   */
+  // Obtener documento agregado; si falta, recalcular sobre la marcha
   static async getAggregate(driverId) {
     let agg = await DriverRatingAggregate.findOne({ driverId }).lean();
     if (!agg) {

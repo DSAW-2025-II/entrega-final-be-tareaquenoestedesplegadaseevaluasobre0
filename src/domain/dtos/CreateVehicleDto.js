@@ -1,7 +1,5 @@
-/**
- * CreateVehicleDto - Data Transfer Object for vehicle creation
- * Validates and sanitizes vehicle creation data
- */
+// DTO de creación de vehículo: objeto de transferencia de datos para creación de vehículo
+// Valida y sanitiza datos de creación de vehículo
 class CreateVehicleDto {
   constructor({
     driverId,
@@ -21,12 +19,7 @@ class CreateVehicleDto {
     this.soatPhotoUrl = soatPhotoUrl;
   }
 
-  /**
-   * Create DTO from request body
-   * @param {Object} body - Request body
-   * @param {string} driverId - Driver ID from authentication
-   * @returns {CreateVehicleDto} - DTO instance
-   */
+  // Crear DTO desde body de request
   static fromRequest(body, driverId) {
     return new CreateVehicleDto({
       driverId,
@@ -39,13 +32,7 @@ class CreateVehicleDto {
     });
   }
 
-  /**
-   * Create DTO from multipart/form-data request
-   * @param {Object} fields - Form fields from request body
-   * @param {Object} files - Uploaded files { vehiclePhoto, soatPhoto }
-   * @param {string} driverId - Driver ID from authentication
-   * @returns {CreateVehicleDto} - DTO instance
-   */
+  // Crear DTO desde request multipart/form-data
   static fromMultipart(fields, files, driverId) {
     const vehiclePhotoUrl = files?.vehiclePhoto ? `/uploads/vehicles/${files.vehiclePhoto.filename}` : null;
     const soatPhotoUrl = files?.soatPhoto ? `/uploads/vehicles/${files.soatPhoto.filename}` : null;
@@ -61,21 +48,18 @@ class CreateVehicleDto {
     });
   }
 
-  /**
-   * Validate DTO data
-   * @throws {ValidationError} - If validation fails
-   */
+  // Validar datos del DTO: lanza ValidationError si la validación falla
   validate() {
     const errors = [];
 
-    // Required fields
+    // Campos requeridos
     if (!this.driverId) errors.push({ field: 'driverId', issue: 'Driver ID is required' });
     if (!this.plate) errors.push({ field: 'plate', issue: 'Plate is required' });
     if (!this.brand) errors.push({ field: 'brand', issue: 'Brand is required' });
     if (!this.model) errors.push({ field: 'model', issue: 'Model is required' });
     if (!this.capacity) errors.push({ field: 'capacity', issue: 'Capacity is required' });
 
-    // Plate format validation
+    // Validación de formato de placa
     if (this.plate && !/^[A-Z]{3}[0-9]{3}$/.test(this.plate)) {
       errors.push({ field: 'plate', issue: 'Plate must be in format ABC123 (3 letters, 3 numbers)' });
     }

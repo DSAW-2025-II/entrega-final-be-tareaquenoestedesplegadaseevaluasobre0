@@ -1,30 +1,17 @@
-/**
- * Password Reset Token Utility
- * 
- * Provides secure token generation and hashing for password reset functionality.
- * 
- * Security principles:
- * - Cryptographically secure random bytes (32 bytes)
- * - URL-safe base64 encoding for tokens
- * - SHA-256 hashing for storage (never store plaintext tokens)
- * - Constant-time comparison for token verification
- */
-
+// Utilidad para tokens de restablecimiento de contraseña
+// Principios de seguridad:
+// - Bytes aleatorios criptográficamente seguros (32 bytes)
+// - Codificación base64 URL-safe para tokens
+// - Hash SHA-256 para almacenamiento (nunca almacenar tokens en texto plano)
+// - Comparación constante en tiempo para verificación de tokens
 const crypto = require('crypto');
 
 class ResetTokenUtil {
-  /**
-   * Generate a cryptographically secure reset token
-   * 
-   * @returns {string} - URL-safe base64-encoded token (43 characters)
-   * 
-   * Example: "xB7kN9mQ-pLr2vW8cZ5jT1aH6dF4gY0eU3iO9sA7bK2"
-   */
+  // Generar token seguro criptográficamente (43 caracteres base64 URL-safe)
   static generateToken() {
-    // Generate 32 bytes of cryptographically secure random data
     const tokenBytes = crypto.randomBytes(32);
     
-    // Convert to URL-safe base64 (no +, /, or = characters)
+    // Convertir a base64 URL-safe (sin +, /, o =)
     const token = tokenBytes
       .toString('base64')
       .replace(/\+/g, '-')
@@ -34,17 +21,7 @@ class ResetTokenUtil {
     return token;
   }
 
-  /**
-   * Hash a reset token for secure storage
-   * 
-   * Uses SHA-256 to create a one-way hash of the token.
-   * Store the hash in the database, not the plaintext token.
-   * 
-   * @param {string} token - The plaintext token to hash
-   * @returns {string} - Hexadecimal hash (64 characters)
-   * 
-   * Security: SHA-256 is one-way (cannot reverse to get original token)
-   */
+  // Hashear token para almacenamiento seguro (SHA-256 unidireccional)
   static hashToken(token) {
     if (!token || typeof token !== 'string') {
       throw new Error('Invalid token: must be a non-empty string');
@@ -56,15 +33,7 @@ class ResetTokenUtil {
       .digest('hex');
   }
 
-  /**
-   * Verify a token against its stored hash
-   * 
-   * Uses constant-time comparison to prevent timing attacks.
-   * 
-   * @param {string} plainToken - The token provided by the user
-   * @param {string} storedHash - The hash stored in the database
-   * @returns {boolean} - true if token matches hash, false otherwise
-   */
+  // Verificar token comparándolo con su hash almacenado (comparación timing-safe)
   static verifyToken(plainToken, storedHash) {
     if (!plainToken || !storedHash) {
       return false;
@@ -73,102 +42,63 @@ class ResetTokenUtil {
     try {
       const providedHash = this.hashToken(plainToken);
       
-      // Constant-time comparison to prevent timing attacks
+      // Comparación constante en tiempo para prevenir ataques de timing
       return crypto.timingSafeEqual(
         Buffer.from(providedHash, 'hex'),
         Buffer.from(storedHash, 'hex')
       );
     } catch (error) {
-      // Timing attacks: always take same time even on error
+      // Ataques de timing: siempre tomar el mismo tiempo incluso en error
       return false;
     }
   }
 
-  /**
-   * Generate token expiry timestamp
-   * 
-   * @param {number} minutes - Minutes until expiration (default: 15)
-   * @returns {Date} - Expiry timestamp
-   */
+  // Generar timestamp de expiración del token
   static getExpiryTime(minutes = 15) {
     return new Date(Date.now() + minutes * 60 * 1000);
   }
 
-  /**
-   * Check if a token has expired
-   * 
-   * @param {Date} expiryDate - The expiry timestamp from database
-   * @returns {boolean} - true if expired, false otherwise
-   */
+  // Verificar si un token ha expirado
   static isExpired(expiryDate) {
     if (!expiryDate) {
-      return true; // No expiry date means invalid/expired
+      return true; // Sin fecha de expiración significa inválido/expirado
     }
 
     return new Date() > new Date(expiryDate);
   }
 
-  /**
-   * Check if a token has been consumed
-   * 
-   * @param {Date|null} consumedAt - The consumption timestamp
-   * @returns {boolean} - true if consumed, false otherwise
-   */
+  // Verificar si un token ha sido consumido
   static isConsumed(consumedAt) {
     return consumedAt !== null && consumedAt !== undefined;
   }
 
-  /**
-   * Generate and hash a reset token (convenience method)
-   * 
-   * Generates a cryptographically secure token with hash and expiry.
-   * This is the primary method for creating password reset tokens.
-   * 
-   * @param {number} expiryMinutes - Minutes until expiration (default: 15)
-   * @returns {Object} - { tokenPlain, tokenHash, expiresAt }
-   * 
-   * Usage:
-   * const { tokenPlain, tokenHash, expiresAt } = ResetTokenUtil.generateResetToken();
-   * // Send `tokenPlain` to user via email
-   * // Store `tokenHash` and `expiresAt` in database
-   * 
-   * Returns:
-   * - tokenPlain: URL-safe base64 string (43 chars) - send to user
-   * - tokenHash: SHA-256 hex string (64 chars) - store in database
-   * - expiresAt: Date object - store in database
-   */
+  // Generar y hashear token de restablecimiento (método principal)
   static generateResetToken(expiryMinutes = 15) {
-    // Generate secure random token (32 bytes)
     const buf = crypto.randomBytes(32);
     
-    // Convert to URL-safe base64
+    // Convertir a base64 URL-safe
     const tokenPlain = buf
       .toString('base64')
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=/g, '');
 
-    // Hash for storage
+    // Hashear para almacenamiento
     const tokenHash = this.hashToken(tokenPlain);
     
-    // Calculate expiry
+    // Calcular expiración
     const expiresAt = this.getExpiryTime(expiryMinutes);
 
     return {
-      tokenPlain,   // Send this to user (via email)
-      tokenHash,    // Store this in database
-      expiresAt     // Store this in database
+      tokenPlain,   // Enviar esto al usuario (por email)
+      tokenHash,    // Almacenar esto en la base de datos
+      expiresAt     // Almacenar esto en la base de datos
     };
   }
 
-  /**
-   * DEPRECATED: Use generateResetToken() instead
-   * 
-   * This method is kept for backward compatibility but may be removed.
-   */
+  // DEPRECADO: usar generateResetToken() en su lugar
   static createResetToken(expiryMinutes = 15) {
     const result = this.generateResetToken(expiryMinutes);
-    // Map new names to old names for compatibility
     return {
       token: result.tokenPlain,
       tokenHash: result.tokenHash,

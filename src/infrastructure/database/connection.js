@@ -1,3 +1,4 @@
+// Conexión a MongoDB: configuración y gestión de conexión a base de datos
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
@@ -5,7 +6,7 @@ const connectDB = async () => {
     const options = {
     };
 
-  // Prefer test-specific in-memory URI when provided by test helper
+  // Preferir URI de test en memoria cuando es proporcionada por helper de test
   const mongoUri = process.env.MONGO_URI_TEST || process.env.MONGODB_URI || process.env.MONGODB_URI_TEST;
   // Conectar a MongoDB
   const conn = await mongoose.connect(mongoUri, options);
@@ -14,12 +15,14 @@ const connectDB = async () => {
     console.log(`[MongoDB] Database: ${conn.connection.name}`);
 
     try {
+      // Crear índices únicos para usuarios
       await conn.connection.db.collection('users').createIndexes([
         { key: { corporateEmail: 1 }, unique: true, name: 'corporateEmail_unique' },
         { key: { universityId: 1 }, unique: true, name: 'universityId_unique' },
         { key: { phone: 1 }, unique: true, name: 'phone_unique' }
       ]);
       
+      // Crear índices para vehículos
       await conn.connection.db.collection('vehicles').createIndexes([
         { key: { plate: 1 }, unique: true, name: 'plate_unique' },
         { key: { driverId: 1 }, unique: false, name: 'driverId_index' }
@@ -42,7 +45,7 @@ const connectDB = async () => {
   }
 };
 
-// Event handlers para monitoreo de conexión
+// Event handlers para monitoreo de conexión: eventos de conexión, error y desconexión
 mongoose.connection.on('connected', () => {
   console.log('[MongoDB] Mongoose connected to DB');
 });
@@ -55,7 +58,7 @@ mongoose.connection.on('disconnected', () => {
   console.log('[MongoDB] Mongoose disconnected from DB');
 });
 
-// Manejo de cierre graceful
+// Manejo de cierre graceful: cerrar conexión al terminar aplicación
 process.on('SIGINT', async () => {
   try {
     await mongoose.connection.close();

@@ -1,12 +1,5 @@
-/**
- * LifecycleJobResultDto
- * 
- * Data Transfer Object for lifecycle job execution results.
- * Provides metrics for monitoring and admin visibility.
- * 
- * Used in: POST /internal/jobs/run (US-3.4.4)
- */
-
+// DTO de resultado de trabajo de ciclo de vida: objeto de transferencia de datos para resultados de ejecución de trabajos de ciclo de vida
+// Proporciona métricas para monitoreo y visibilidad de admin
 class LifecycleJobResultDto {
   constructor({ ok, completedTrips, expiredPendings }) {
     this.ok = ok;
@@ -14,15 +7,7 @@ class LifecycleJobResultDto {
     this.expiredPendings = expiredPendings || 0;
   }
 
-  /**
-   * Create DTO from job execution result
-   * 
-   * @param {Object} jobResult - Result from LifecycleJobService
-   * @param {boolean} jobResult.ok - Whether job succeeded
-   * @param {number} jobResult.completedTrips - Count of trips marked as completed
-   * @param {number} jobResult.expiredPendings - Count of bookings marked as expired
-   * @returns {LifecycleJobResultDto}
-   */
+  // Crear DTO desde resultado de ejecución de trabajo
   static fromJobResult(jobResult) {
     return new LifecycleJobResultDto({
       ok: jobResult.ok,

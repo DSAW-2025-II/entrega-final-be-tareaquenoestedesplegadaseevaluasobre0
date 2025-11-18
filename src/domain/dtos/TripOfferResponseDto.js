@@ -1,8 +1,5 @@
-/**
- * Trip Offer Response DTO
- * Data Transfer Object for public API responses
- * Strict, leak-free mapping
- */
+// DTO de respuesta de oferta de viaje: objeto de transferencia de datos para respuestas públicas de API
+// Mapeo estricto sin filtraciones de datos
 class TripOfferResponseDto {
   constructor(tripOffer, populatedDoc = null) {
     this.id = tripOffer.id;
@@ -31,7 +28,7 @@ class TripOfferResponseDto {
     this.createdAt = tripOffer.createdAt?.toISOString();
     this.updatedAt = tripOffer.updatedAt?.toISOString();
 
-    // Include driver info if populated
+    // Incluir información del conductor si está poblada
     if (populatedDoc?.driverId && typeof populatedDoc.driverId === 'object') {
       this.driver = {
         id: populatedDoc.driverId._id?.toString() || populatedDoc.driverId.id,
@@ -41,7 +38,7 @@ class TripOfferResponseDto {
       };
     }
 
-    // Include vehicle info if populated
+    // Incluir información del vehículo si está poblada
     if (populatedDoc?.vehicleId && typeof populatedDoc.vehicleId === 'object') {
       this.vehicle = {
         id: populatedDoc.vehicleId._id?.toString() || populatedDoc.vehicleId.id,
@@ -52,29 +49,23 @@ class TripOfferResponseDto {
     }
   }
 
-  /**
-   * Create response DTO from domain entity
-   */
+  // Crear DTO de respuesta desde entidad de dominio
   static fromDomain(tripOffer) {
     if (!tripOffer) return null;
     return new TripOfferResponseDto(tripOffer);
   }
 
-  /**
-   * Create response DTO from domain entity with populated driver/vehicle info
-   */
+  // Crear DTO de respuesta desde entidad de dominio con información poblada de conductor/vehículo
   static fromDomainWithPopulated(tripOffer, populatedDoc) {
     if (!tripOffer) return null;
     return new TripOfferResponseDto(tripOffer, populatedDoc);
   }
 
-  /**
-   * Create response DTO directly from populated Mongoose document
-   */
+  // Crear DTO de respuesta directamente desde documento Mongoose poblado
   static fromPopulatedDoc(doc) {
     if (!doc) return null;
     
-    // Create a minimal tripOffer-like object from the document
+    // Crear objeto mínimo tipo tripOffer desde el documento
     const tripOffer = {
       id: doc._id.toString(),
       driverId: doc.driverId?._id?.toString() || doc.driverId?.toString() || doc.driverId,
@@ -94,9 +85,7 @@ class TripOfferResponseDto {
     return new TripOfferResponseDto(tripOffer, doc);
   }
 
-  /**
-   * Create array of response DTOs from domain entities
-   */
+  // Crear array de DTOs de respuesta desde entidades de dominio
   static fromDomainArray(tripOffers) {
     return tripOffers.map((trip) => TripOfferResponseDto.fromDomain(trip));
   }

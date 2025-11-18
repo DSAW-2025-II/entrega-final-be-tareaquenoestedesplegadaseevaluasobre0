@@ -6,10 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "test:integration": "node tests/setup.js",
-    "test:unit": "node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPattern=unit",
-    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
+    "clear-trips": "node scripts/clear-trips.js"
   },
   "keywords": [
     "carpooling",
@@ -42,7 +39,6 @@
     "swagger-ui-express": "^5.0.0"
   },
   "devDependencies": {
-    "jest": "^29.7.0",
     "nodemon": "^3.0.2"
   },
   "engines": {

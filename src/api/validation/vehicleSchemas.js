@@ -1,14 +1,7 @@
+// Esquemas de validación de vehículos (Joi): validan creación y actualización de vehículos
 const Joi = require('joi');
 
-/**
- * Vehicle Validation Schemas using Joi
- * Validates vehicle creation and update requests
- */
-
-/**
- * Schema for creating a vehicle
- * Enforces Colombian plate format: ABC123 (3 letters, 3 numbers)
- */
+// Esquema para crear vehículo: plate (formato colombiano ABC123), brand (2-60 caracteres), model (1-60 caracteres), capacity (1-20)
 const createVehicleSchema = Joi.object({
   plate: Joi.string()
     .required()
@@ -69,11 +62,16 @@ const createVehicleSchema = Joi.object({
   abortEarly: false
 });
 
-/**
- * Schema for updating a vehicle
- * All fields are optional, but at least one must be provided
- */
+// Esquema para actualizar vehículo: plate, brand, model, capacity (opcionales, pero al menos uno requerido)
 const updateVehicleSchema = Joi.object({
+  plate: Joi.string()
+    .trim()
+    .uppercase()
+    .pattern(/^[A-Z]{3}[0-9]{3}$/)
+    .messages({
+      'string.pattern.base': 'Plate must be in format ABC123 (3 letters, 3 numbers)'
+    }),
+
   brand: Joi.string()
     .trim()
     .min(2)
@@ -102,8 +100,7 @@ const updateVehicleSchema = Joi.object({
       'number.max': 'Capacity must not exceed 20'
     }),
 
-  // Temporary field for testing without authentication
-  // TODO: Remove when authentication is implemented
+  // Campo temporal para pruebas sin autenticación
   driverId: Joi.string()
     .optional()
     .messages({
@@ -116,10 +113,7 @@ const updateVehicleSchema = Joi.object({
   'object.min': 'At least one field must be provided for update'
 });
 
-/**
- * Schema for vehicle photo uploads
- * Validates file metadata
- */
+// Esquema para carga de fotos de vehículo: valida metadatos de archivo (fieldname, originalname, encoding, mimetype JPEG/PNG/WebP, size máx 5MB)
 const vehiclePhotoSchema = Joi.object({
   fieldname: Joi.string().valid('vehiclePhoto', 'soatPhoto').required(),
   originalname: Joi.string().required(),

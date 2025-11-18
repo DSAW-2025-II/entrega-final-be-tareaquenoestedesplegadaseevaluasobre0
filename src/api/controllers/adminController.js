@@ -1,7 +1,10 @@
+// Controlador de administración: maneja operaciones administrativas (usuarios, viajes, reservas, reportes, auditoría)
 const TripOfferModel = require('../../infrastructure/database/models/TripOfferModel');
 const BookingRequestModel = require('../../infrastructure/database/models/BookingRequestModel');
 const UserModel = require('../../infrastructure/database/models/UserModel');
 const UserReportModel = require('../../infrastructure/database/models/UserReportModel');
+const ReviewReportModel = require('../../infrastructure/database/models/ReviewReportModel');
+const ReviewModel = require('../../infrastructure/database/models/ReviewModel');
 const AuditService = require('../../domain/services/AuditService');
 const NotificationService = require('../../domain/services/NotificationService');
 const ModerationNote = require('../../infrastructure/database/models/ModerationNoteModel');
@@ -9,13 +12,13 @@ const Evidence = require('../../infrastructure/database/models/EvidenceModel');
 const AuditLogModel = require('../../infrastructure/database/models/AuditLogModel');
 const AuditAnchor = require('../../infrastructure/database/models/AuditAnchorModel');
 
-// Domain services & repositories used for cascade operations
+// Servicios y repositorios de dominio usados para operaciones en cascada
 const TripOfferService = require('../../domain/services/TripOfferService');
 const MongoTripOfferRepository = require('../../infrastructure/repositories/MongoTripOfferRepository');
 const MongoBookingRequestRepository = require('../../infrastructure/repositories/MongoBookingRequestRepository');
 const MongoSeatLedgerRepository = require('../../infrastructure/repositories/MongoSeatLedgerRepository');
 
-// Helper: mask email like a***@domain.com
+// Utilidad: enmascarar email como a***@domain.com
 function maskEmail(email) {
   if (!email || typeof email !== 'string') return '';
   const parts = email.split('@');
@@ -26,7 +29,7 @@ function maskEmail(email) {
   return `${local[0]}***@${domain}`;
 }
 
-// Controller: List users for admin with filters, pagination and optional stats
+// GET /admin/users: listar usuarios para admin con filtros, paginación y estadísticas opcionales
 async function listUsers(req, res, next) {
   try {
     const {
@@ -1495,3 +1498,120 @@ async function sendMessageToReportedUser(req, res, next) {
 }
 
 module.exports.sendMessageToReportedUser = sendMessageToReportedUser;
+
+/**
+ * Admin: List review reports with filters and pagination
+ * GET /admin/review-reports
+ */
+async function listReviewReports(req, res, next) {
+  try {
+    const {
+      category,
+      page = '1',
+      pageSize = '25',
+      sort = '-createdAt'
+    } = req.query;
+
+    // Basic validation
+    const pageNum = parseInt(page, 10);
+    const pageSizeNum = parseInt(pageSize, 10);
+    if (Number.isNaN(pageNum) || Number.isNaN(pageSizeNum) || pageNum < 1 || pageSizeNum < 1) {
+      return res.status(400).json({ code: 'invalid_schema', message: 'Invalid query parameters', correlationId: req.correlationId });
+    }
+
+    const query = {};
+    if (category) query.category = category;
+
+    const sortObj = {};
+    if (sort) {
+      const direction = sort.startsWith('-') ? -1 : 1;
+      const field = sort.replace(/^-/, '');
+      sortObj[field] = direction;
+    } else {
+      sortObj.createdAt = -1;
+    }
+
+    const skip = (pageNum - 1) * pageSizeNum;
+
+    const [total, docs] = await Promise.all([
+      ReviewReportModel.countDocuments(query),
+      ReviewReportModel.find(query)
+        .populate('reporterId', 'firstName lastName corporateEmail role')
+        .populate({
+          path: 'reviewId',
+          populate: [
+            { path: 'passengerId', select: 'firstName lastName corporateEmail role' },
+            { path: 'driverId', select: 'firstName lastName corporateEmail role' },
+            { path: 'tripId', select: 'origin destination departureAt' }
+          ]
+        })
+        .sort(sortObj)
+        .skip(skip)
+        .limit(pageSizeNum)
+        .lean()
+    ]);
+
+    const items = docs
+      .filter(doc => doc.reviewId && doc.reviewId.passengerId && doc.reviewId.driverId)
+      .map(report => ({
+        id: report._id.toString(),
+        type: 'review',
+        reviewAuthor: {
+          id: report.reviewId.passengerId._id.toString(),
+          firstName: report.reviewId.passengerId.firstName || 'Usuario',
+          lastName: report.reviewId.passengerId.lastName || 'Eliminado',
+          corporateEmail: report.reviewId.passengerId.corporateEmail || 'N/A',
+          role: report.reviewId.passengerId.role || 'passenger'
+        },
+        reviewTarget: {
+          id: report.reviewId.driverId._id.toString(),
+          firstName: report.reviewId.driverId.firstName || 'Usuario',
+          lastName: report.reviewId.driverId.lastName || 'Eliminado',
+          corporateEmail: report.reviewId.driverId.corporateEmail || 'N/A',
+          role: report.reviewId.driverId.role || 'driver'
+        },
+        reporter: {
+          id: report.reporterId._id.toString(),
+          firstName: report.reporterId.firstName || 'Usuario',
+          lastName: report.reporterId.lastName || 'Eliminado',
+          corporateEmail: report.reporterId.corporateEmail || 'N/A',
+          role: report.reporterId.role || 'passenger'
+        },
+        review: {
+          id: report.reviewId._id.toString(),
+          rating: report.reviewId.rating,
+          text: report.reviewId.text || '',
+          status: report.reviewId.status || 'visible'
+        },
+        trip: {
+          id: report.reviewId.tripId?._id?.toString() || null,
+          origin: (report.reviewId.tripId?.origin && typeof report.reviewId.tripId.origin === 'object' && report.reviewId.tripId.origin.text)
+            ? report.reviewId.tripId.origin.text
+            : (report.reviewId.tripId?.origin || 'Origen desconocido'),
+          destination: (report.reviewId.tripId?.destination && typeof report.reviewId.tripId.destination === 'object' && report.reviewId.tripId.destination.text)
+            ? report.reviewId.tripId.destination.text
+            : (report.reviewId.tripId?.destination || 'Destino desconocido'),
+          departureAt: report.reviewId.tripId?.departureAt || null
+        },
+        category: report.category,
+        reason: report.reason || '',
+        createdAt: report.createdAt,
+        correlationId: report.correlationId
+      }));
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSizeNum));
+
+    res.json({
+      items,
+      page: pageNum,
+      pageSize: pageSizeNum,
+      total,
+      totalPages,
+      requestId: req.correlationId
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports.listReviewReports = listReviewReports;
