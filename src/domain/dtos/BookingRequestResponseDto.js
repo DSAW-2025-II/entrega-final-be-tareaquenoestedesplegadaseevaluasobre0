@@ -1,0 +1,202 @@
+/**
+ * BookingRequestResponseDto
+ * 
+ * Data Transfer Object for booking request API responses.
+ * Sanitizes internal data and formats for external consumption.
+ * 
+ * Never exposes:
+ * - Internal MongoDB _id (use id instead)
+ * - Sensitive passenger data beyond ownership
+ * - Internal state machine details
+ */
+
+class BookingRequestResponseDto {
+  constructor({
+    id,
+    tripId,
+    passengerId,
+    status,
+    seats,
+    note,
+    canceledAt,
+    paymentMethod = null,
+    paymentStatus = null,
+    paidAt = null,
+    isPaid = false,
+    createdAt,
+    updatedAt,
+    // Datos de viaje poblados opcionales (para respuestas de lista)
+    trip = null,
+    // Datos de pasajero poblados opcionales (para vista de conductor)
+    passenger = null
+  }) {
+    this.id = id;
+    this.tripId = tripId;
+    this.passengerId = passengerId;
+    this.status = status;
+    this.seats = seats;
+    this.note = note;
+    this.canceledAt = canceledAt;
+    this.paymentMethod = paymentMethod;
+    this.paymentStatus = paymentStatus;
+    this.paidAt = paidAt;
+    this.isPaid = isPaid;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
+
+    // Si el pasajero está poblado, incluir información del pasajero
+    if (passenger) {
+      this.passenger = {
+        id: passenger._id?.toString() || passenger.id,
+        firstName: passenger.firstName,
+        lastName: passenger.lastName,
+        corporateEmail: passenger.corporateEmail
+      };
+    }
+
+    // Si el viaje está poblado, incluir detalles relevantes del viaje
+    if (trip) {
+      // Extraer driverId - puede ser string ObjectId u objeto poblado
+      let driverIdValue = null;
+      if (trip.driverId) {
+        if (typeof trip.driverId === 'object') {
+          driverIdValue = trip.driverId._id?.toString() || trip.driverId.id;
+        } else {
+          driverIdValue = trip.driverId.toString();
+        }
+      }
+      
+      // Extraer vehicleId - puede ser string ObjectId u objeto poblado
+      let vehicleIdValue = null;
+      if (trip.vehicleId) {
+        if (typeof trip.vehicleId === 'object') {
+          vehicleIdValue = trip.vehicleId._id?.toString() || trip.vehicleId.id;
+        } else {
+          vehicleIdValue = trip.vehicleId.toString();
+        }
+      }
+      
+      this.trip = {
+        id: trip.id || trip._id?.toString(),
+        driverId: driverIdValue, // Incluir driverId para navegación
+        origin: trip.origin,
+        destination: trip.destination,
+        departureAt: trip.departureAt,
+        estimatedArrivalAt: trip.estimatedArrivalAt,
+        pricePerSeat: trip.pricePerSeat,
+        status: trip.status,
+        notes: trip.notes || null,
+        // Incluir información del conductor si está poblada
+        driver: trip.driverId && typeof trip.driverId === 'object' ? {
+          id: trip.driverId._id?.toString() || trip.driverId.id,
+          firstName: trip.driverId.firstName,
+          lastName: trip.driverId.lastName,
+          corporateEmail: trip.driverId.corporateEmail,
+          profilePhotoUrl: trip.driverId.profilePhoto || null
+        } : undefined,
+        // Incluir información del vehículo si está poblada
+        vehicle: trip.vehicleId && typeof trip.vehicleId === 'object' ? {
+          id: trip.vehicleId._id?.toString() || trip.vehicleId.id,
+          brand: trip.vehicleId.brand,
+          model: trip.vehicleId.model,
+          plate: trip.vehicleId.plate || null
+        } : undefined
+      };
+    }
+  }
+
+  // Crear DTO desde entidad de dominio
+  static fromDomain(bookingRequest) {
+    return new BookingRequestResponseDto({
+      id: bookingRequest.id,
+      tripId: bookingRequest.tripId,
+      passengerId: bookingRequest.passengerId,
+      status: bookingRequest.status,
+      seats: bookingRequest.seats,
+      note: bookingRequest.note,
+      canceledAt: bookingRequest.canceledAt,
+      paymentMethod: bookingRequest.paymentMethod,
+      paymentStatus: bookingRequest.paymentStatus,
+      paidAt: bookingRequest.paidAt,
+      isPaid: bookingRequest.isPaid,
+      createdAt: bookingRequest.createdAt,
+      updatedAt: bookingRequest.updatedAt
+    });
+  }
+
+  /**
+   * Create DTO from Mongoose document
+   * @param {Document} doc - Mongoose document
+   * @returns {BookingRequestResponseDto}
+   */
+  static fromDocument(doc) {
+    const obj = doc.toObject ? doc.toObject() : doc;
+
+    // Check if trip is populated (should be an object with origin field)
+    const tripIsPopulated = obj.tripId && typeof obj.tripId === 'object' && obj.tripId.origin;
+    
+    // Check if passenger is populated (should be an object with firstName field)
+    const passengerIsPopulated = obj.passengerId && typeof obj.passengerId === 'object' && obj.passengerId.firstName;
+    
+    // Extract passengerId - handle both populated and non-populated cases
+    let passengerIdValue = null;
+    if (obj.passengerId) {
+      if (typeof obj.passengerId === 'object') {
+        // If populated, extract _id from the populated object
+        passengerIdValue = obj.passengerId._id?.toString() || obj.passengerId.id?.toString();
+      } else {
+        // If not populated, it's already a string/ObjectId
+        passengerIdValue = obj.passengerId.toString();
+      }
+    }
+    
+    // Debug log if trip is not populated but tripId exists
+    if (obj.tripId && !tripIsPopulated) {
+      console.warn(`[BookingRequestResponseDto] Trip not populated for booking ${obj._id?.toString() || obj.id} | tripId: ${obj.tripId?.toString() || obj.tripId} | tripId type: ${typeof obj.tripId}`);
+    }
+    
+    // Debug log passengerId extraction
+    console.log(`[BookingRequestResponseDto] fromDocument | bookingId: ${obj._id?.toString() || obj.id} | passengerId type: ${typeof obj.passengerId} | passengerIdValue: ${passengerIdValue} | passengerIsPopulated: ${passengerIsPopulated}`);
+
+    return new BookingRequestResponseDto({
+      id: obj._id?.toString() || obj.id,
+      tripId: obj.tripId?._id?.toString() || obj.tripId?.toString() || obj.tripId,
+      passengerId: passengerIdValue, // Always use extracted string value
+      status: obj.status,
+      seats: obj.seats,
+      note: obj.note || '',
+      canceledAt: obj.canceledAt,
+      paymentMethod: obj.paymentMethod || null,
+      paymentStatus: obj.paymentStatus || null,
+      paidAt: obj.paidAt || null,
+      isPaid: obj.isPaid || false,
+      createdAt: obj.createdAt,
+      updatedAt: obj.updatedAt,
+      // Include populated trip if available
+      trip: tripIsPopulated ? obj.tripId : null,
+      // Include populated passenger if available
+      passenger: passengerIsPopulated ? obj.passengerId : null
+    });
+  }
+
+  /**
+   * Create array of DTOs from domain entities
+   * @param {BookingRequest[]} bookingRequests - Array of domain entities
+   * @returns {BookingRequestResponseDto[]}
+   */
+  static fromDomainArray(bookingRequests) {
+    return bookingRequests.map((br) => BookingRequestResponseDto.fromDomain(br));
+  }
+
+  /**
+   * Create array of DTOs from Mongoose documents
+   * @param {Document[]} docs - Array of Mongoose documents
+   * @returns {BookingRequestResponseDto[]}
+   */
+  static fromDocumentArray(docs) {
+    return docs.map((doc) => BookingRequestResponseDto.fromDocument(doc));
+  }
+}
+
+module.exports = BookingRequestResponseDto;
+
