@@ -46,24 +46,40 @@ async function ensureDBConnection() {
 }
 
 // Handler serverless: se ejecuta en cada request
+// Vercel espera que retornemos una Promise que se resuelve cuando Express termina
 module.exports = async (req, res) => {
-  try {
-    // Conectar a la base de datos si no está conectado
-    await ensureDBConnection();
-    
-    // Pasar el request a Express (no retornar, Express maneja la respuesta)
-    app(req, res);
-  } catch (error) {
-    console.error('[Serverless] Handler error:', error);
-    
-    // Si no hay respuesta enviada aún, enviar error
-    if (!res.headersSent) {
-      res.status(500).json({
-        code: 'server_error',
-        message: 'Internal server error',
-        error: process.env.NODE_ENV === 'production' ? undefined : error.message
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Conectar a la base de datos si no está conectado
+      await ensureDBConnection();
+      
+      // Interceptar el evento 'finish' de la respuesta para resolver la Promise
+      res.on('finish', () => {
+        resolve();
       });
+      
+      // Manejar errores de Express
+      res.on('error', (error) => {
+        console.error('[Serverless] Response error:', error);
+        reject(error);
+      });
+      
+      // Pasar el request a Express
+      app(req, res);
+    } catch (error) {
+      console.error('[Serverless] Handler error:', error);
+      
+      // Si no hay respuesta enviada aún, enviar error
+      if (!res.headersSent) {
+        res.status(500).json({
+          code: 'server_error',
+          message: 'Internal server error',
+          error: process.env.NODE_ENV === 'production' ? undefined : error.message
+        });
+      }
+      
+      resolve(); // Resolver incluso si hay error para evitar timeout
     }
-  }
+  });
 };
 
