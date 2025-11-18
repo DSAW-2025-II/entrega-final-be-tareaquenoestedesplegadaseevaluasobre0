@@ -80,6 +80,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parsear form-
 const paymentRoutes = require('./api/routes/paymentRoutes');
 app.use('/api', paymentRoutes);
 
+// Rutas para servir archivos desde GridFS
+const fileRoutes = require('./api/routes/fileRoutes');
+app.use('/api/files', fileRoutes);
+
 // Archivos estáticos: servir uploads con headers CORS
 // En Vercel serverless, los archivos se guardan en /tmp (efímero), así que no servimos estáticos desde aquí
 // Los archivos deberían estar en un servicio de almacenamiento en la nube (S3, Cloudinary, etc.)

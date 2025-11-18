@@ -6,6 +6,8 @@ const UpdateVehicleDto = require('../dtos/UpdateVehicleDto');
 const VehicleResponseDto = require('../dtos/VehicleResponseDto');
 const OneVehicleRuleError = require('../errors/OneVehicleRuleError');
 const DuplicatePlateError = require('../errors/DuplicatePlateError');
+const gridfsStorage = require('../../infrastructure/storage/gridfsStorage');
+const path = require('path');
 
 class VehicleService {
   constructor() {
@@ -13,7 +15,7 @@ class VehicleService {
   }
 
   // Crear nuevo vehículo para un conductor: valida regla de un vehículo por conductor y placa única
-  async createVehicle(createVehicleDto) {
+  async createVehicle(createVehicleDto, files = {}) {
     // Verificar si el conductor ya tiene un vehículo
     const hasVehicle = await this.vehicleRepository.driverHasVehicle(createVehicleDto.driverId);
     if (hasVehicle) {
@@ -34,8 +36,34 @@ class VehicleService {
       );
     }
 
-    // Crear vehículo en el repositorio
+    // Guardar fotos en GridFS si están presentes
     const vehicleData = createVehicleDto.toObject();
+    
+    if (files.vehiclePhoto && files.vehiclePhoto.buffer) {
+      const ext = path.extname(files.vehiclePhoto.originalname);
+      const filename = `vehicle-${createVehicleDto.driverId}-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
+      const fileId = await gridfsStorage.saveFile(files.vehiclePhoto.buffer, {
+        filename,
+        contentType: files.vehiclePhoto.mimetype,
+        category: 'vehicles',
+        userId: createVehicleDto.driverId
+      });
+      vehicleData.vehiclePhotoUrl = `/api/files/${fileId}`;
+    }
+    
+    if (files.soatPhoto && files.soatPhoto.buffer) {
+      const ext = path.extname(files.soatPhoto.originalname);
+      const filename = `soat-${createVehicleDto.driverId}-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
+      const fileId = await gridfsStorage.saveFile(files.soatPhoto.buffer, {
+        filename,
+        contentType: files.soatPhoto.mimetype,
+        category: 'vehicles',
+        userId: createVehicleDto.driverId
+      });
+      vehicleData.soatPhotoUrl = `/api/files/${fileId}`;
+    }
+
+    // Crear vehículo en el repositorio
     const vehicle = await this.vehicleRepository.create(vehicleData);
     
     const responseDto = VehicleResponseDto.fromEntity(vehicle);
@@ -81,26 +109,54 @@ class VehicleService {
       }
     }
 
-    // Eliminar fotos antiguas si se proporcionan nuevas
-    if (updateData.vehiclePhotoUrl && existingVehicle.vehiclePhotoUrl) {
-      const fs = require('fs').promises;
-      const path = require('path');
-      const oldPath = path.join(__dirname, '../../../', existingVehicle.vehiclePhotoUrl);
-      try {
-        await fs.unlink(oldPath);
-      } catch (err) {
-        console.error('Error deleting old vehicle photo:', err);
+    // Guardar nuevas fotos en GridFS si están presentes
+    if (files && files.vehiclePhoto && files.vehiclePhoto.buffer) {
+      const ext = path.extname(files.vehiclePhoto.originalname);
+      const filename = `vehicle-${driverId}-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
+      const fileId = await gridfsStorage.saveFile(files.vehiclePhoto.buffer, {
+        filename,
+        contentType: files.vehiclePhoto.mimetype,
+        category: 'vehicles',
+        userId: driverId
+      });
+      updateData.vehiclePhotoUrl = `/api/files/${fileId}`;
+      
+      // Eliminar foto antigua de GridFS si existe
+      if (existingVehicle.vehiclePhotoUrl) {
+        const oldPhotoIdMatch = existingVehicle.vehiclePhotoUrl.match(/\/api\/files\/([a-f\d]{24})/i);
+        if (oldPhotoIdMatch) {
+          try {
+            await gridfsStorage.deleteFile(oldPhotoIdMatch[1]);
+            console.log(`[VehicleService] Deleted old vehicle photo from GridFS: ${oldPhotoIdMatch[1]}`);
+          } catch (err) {
+            console.error('Error deleting old vehicle photo from GridFS:', err);
+          }
+        }
       }
     }
 
-    if (updateData.soatPhotoUrl && existingVehicle.soatPhotoUrl) {
-      const fs = require('fs').promises;
-      const path = require('path');
-      const oldPath = path.join(__dirname, '../../../', existingVehicle.soatPhotoUrl);
-      try {
-        await fs.unlink(oldPath);
-      } catch (err) {
-        console.error('Error deleting old SOAT photo:', err);
+    if (files && files.soatPhoto && files.soatPhoto.buffer) {
+      const ext = path.extname(files.soatPhoto.originalname);
+      const filename = `soat-${driverId}-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
+      const fileId = await gridfsStorage.saveFile(files.soatPhoto.buffer, {
+        filename,
+        contentType: files.soatPhoto.mimetype,
+        category: 'vehicles',
+        userId: driverId
+      });
+      updateData.soatPhotoUrl = `/api/files/${fileId}`;
+      
+      // Eliminar foto antigua de GridFS si existe
+      if (existingVehicle.soatPhotoUrl) {
+        const oldPhotoIdMatch = existingVehicle.soatPhotoUrl.match(/\/api\/files\/([a-f\d]{24})/i);
+        if (oldPhotoIdMatch) {
+          try {
+            await gridfsStorage.deleteFile(oldPhotoIdMatch[1]);
+            console.log(`[VehicleService] Deleted old SOAT photo from GridFS: ${oldPhotoIdMatch[1]}`);
+          } catch (err) {
+            console.error('Error deleting old SOAT photo from GridFS:', err);
+          }
+        }
       }
     }
 

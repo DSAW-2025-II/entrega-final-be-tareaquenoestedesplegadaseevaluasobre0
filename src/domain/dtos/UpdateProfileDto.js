@@ -23,14 +23,15 @@ class UpdateProfileDto {
   }
 
   // Crear DTO desde request multipart/form-data: maneja campos de texto y carga de archivos
+  // Nota: file ahora es null porque el archivo se maneja directamente en el servicio
+  // La URL se generará después de guardar en GridFS
   static fromMultipart(fields, file) {
-    const profilePhotoUrl = file ? `/uploads/profiles/${file.filename}` : undefined;
-
+    // No establecer profilePhotoUrl aquí - se establecerá después de guardar en GridFS
     return new UpdateProfileDto({
       firstName: fields.firstName,
       lastName: fields.lastName,
       phone: fields.phone,
-      profilePhotoUrl
+      profilePhotoUrl: undefined // Se establecerá después de guardar en GridFS
     });
   }
 

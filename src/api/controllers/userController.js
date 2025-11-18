@@ -246,8 +246,9 @@ class UserController {
       // Crear DTO desde request (JSON o multipart)
       let updateProfileDto;
       if (req.file) {
-        // Multipart/form-data con foto
-        updateProfileDto = UpdateProfileDto.fromMultipart(req.body, req.file);
+        // Multipart/form-data con foto (ahora viene como Buffer en memoria)
+        // El DTO se crea sin URL porque la URL se generará después de guardar en GridFS
+        updateProfileDto = UpdateProfileDto.fromMultipart(req.body, null);
       } else {
         // JSON sin foto
         updateProfileDto = UpdateProfileDto.fromRequest(req.body);

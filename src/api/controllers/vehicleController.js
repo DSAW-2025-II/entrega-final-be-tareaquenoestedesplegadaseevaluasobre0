@@ -37,7 +37,7 @@ class VehicleController {
         driverId: driverId
       });
 
-      // Crear DTO de vehículo desde la petición
+      // Crear DTO de vehículo desde la petición (sin URLs de fotos)
       const createVehicleDto = CreateVehicleDto.fromMultipart(req.body, files, driverId);
       
       console.log('[VehicleController] DTO created:', {
@@ -50,8 +50,8 @@ class VehicleController {
       // Validar DTO
       createVehicleDto.validate();
 
-      // Crear vehículo mediante servicio
-      const vehicle = await this.vehicleService.createVehicle(createVehicleDto);
+      // Crear vehículo mediante servicio (pasar archivos para guardar en GridFS)
+      const vehicle = await this.vehicleService.createVehicle(createVehicleDto, files);
 
       console.log('[VehicleController] Vehicle created successfully:', {
         id: vehicle.id,
@@ -146,8 +146,8 @@ class VehicleController {
       // Validate DTO
       updateVehicleDto.validate();
 
-      // Update vehicle through service
-      const vehicle = await this.vehicleService.updateVehicle(driverId, updateVehicleDto);
+      // Update vehicle through service (pasar archivos para guardar en GridFS)
+      const vehicle = await this.vehicleService.updateVehicle(driverId, updateVehicleDto, files);
 
       if (!vehicle) {
         return res.status(404).json({

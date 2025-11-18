@@ -29,17 +29,16 @@ class UpdateVehicleDto {
   }
 
   // Crear DTO desde request multipart/form-data
+  // Nota: files ahora contiene Buffers en memoria, las URLs se generarán después de guardar en GridFS
   static fromMultipart(fields, files) {
-    const vehiclePhotoUrl = files?.vehiclePhoto ? `/uploads/vehicles/${files.vehiclePhoto.filename}` : undefined;
-    const soatPhotoUrl = files?.soatPhoto ? `/uploads/vehicles/${files.soatPhoto.filename}` : undefined;
-
+    // No establecer URLs aquí - se establecerán después de guardar en GridFS
     return new UpdateVehicleDto({
       plate: fields.plate,
       brand: fields.brand,
       model: fields.model,
       capacity: fields.capacity ? parseInt(fields.capacity) : undefined,
-      vehiclePhotoUrl,
-      soatPhotoUrl
+      vehiclePhotoUrl: undefined, // Se establecerá después de guardar en GridFS
+      soatPhotoUrl: undefined // Se establecerá después de guardar en GridFS
     });
   }
 
