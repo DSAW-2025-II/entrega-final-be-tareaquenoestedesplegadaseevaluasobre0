@@ -101,12 +101,75 @@ if (!isVercel) {
     next();
   }, express.static(path.join(__dirname, '..', uploadDir)));
 } else {
-  // En Vercel, responder 404 para rutas de uploads (archivos deberían estar en almacenamiento en la nube)
+  // En Vercel, servir archivos desde /tmp usando endpoint dinámico
+  // Los archivos se guardan en /tmp/uploads/profiles o /tmp/uploads/vehicles
   app.use('/uploads', (req, res) => {
-    res.status(404).json({
-      code: 'not_found',
-      message: 'Static file serving not available in serverless environment. Files should be stored in cloud storage.',
-      correlationId: req.correlationId
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Construir ruta del archivo en /tmp
+    const filePath = path.join('/tmp', req.path);
+    
+    // Verificar que el archivo existe
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        code: 'not_found',
+        message: 'File not found',
+        correlationId: req.correlationId
+      });
+    }
+    
+    // Verificar que el archivo está dentro de los directorios permitidos (seguridad)
+    const normalizedPath = path.normalize(filePath);
+    const allowedDirs = ['/tmp/uploads/profiles', '/tmp/uploads/vehicles', '/tmp/uploads/verifications'];
+    const isAllowed = allowedDirs.some(dir => normalizedPath.startsWith(dir));
+    
+    if (!isAllowed) {
+      return res.status(403).json({
+        code: 'forbidden',
+        message: 'Access denied',
+        correlationId: req.correlationId
+      });
+    }
+    
+    // Determinar Content-Type basado en extensión
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.webp': 'image/webp',
+      '.pdf': 'application/pdf',
+      '.gif': 'image/gif'
+    };
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+    
+    // Servir el archivo con headers apropiados
+    const origin = req.headers.origin;
+    const isAllowedOrigin = process.env.CORS_ORIGINS === '*' || 
+      (Array.isArray(allowedOrigins) && origin && allowedOrigins.includes(origin));
+    
+    if (isAllowedOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', origin || '*');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache por 1 año
+    
+    // Stream del archivo
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+    
+    fileStream.on('error', (err) => {
+      console.error('[app.js] Error streaming file:', err);
+      if (!res.headersSent) {
+        res.status(500).json({
+          code: 'server_error',
+          message: 'Error reading file',
+          correlationId: req.correlationId
+        });
+      }
     });
   });
 }
