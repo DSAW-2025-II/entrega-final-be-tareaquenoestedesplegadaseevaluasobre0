@@ -77,7 +77,7 @@ class VehicleService {
   }
 
   // Actualizar vehículo por ID de conductor: elimina fotos antiguas si se proporcionan nuevas, valida placa duplicada
-  async updateVehicle(driverId, updateVehicleDto) {
+  async updateVehicle(driverId, updateVehicleDto, files = {}) {
     // Verificar si el vehículo existe
     const existingVehicle = await this.vehicleRepository.findByDriverId(driverId);
     if (!existingVehicle) {
