@@ -25,15 +25,15 @@ router.get('/:fileId', async (req, res) => {
     // Obtener archivo de GridFS
     const { stream, metadata } = await gridfsStorage.getFile(fileId);
     
-    // Configurar headers CORS
+    // Configurar headers CORS (usar misma lógica que app.js)
     const origin = req.headers.origin;
-    const allowedOrigins = process.env.CORS_ORIGINS ? 
-      (process.env.CORS_ORIGINS === '*' ? ['*'] : process.env.CORS_ORIGINS.split(',')) : 
-      [];
-    const isAllowedOrigin = allowedOrigins.includes('*') || 
-      (origin && allowedOrigins.includes(origin));
+    const allowedOrigins = process.env.CORS_ORIGINS 
+      ? (process.env.CORS_ORIGINS === '*' ? '*' : process.env.CORS_ORIGINS.split(',').map(o => o.trim()))
+      : ['http://localhost:5173'];
+    const isAllowedOrigin = allowedOrigins === '*' || 
+      (Array.isArray(allowedOrigins) && origin && allowedOrigins.includes(origin));
     
-    if (isAllowedOrigin) {
+    if (isAllowedOrigin || allowedOrigins === '*') {
       res.setHeader('Access-Control-Allow-Origin', origin || '*');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     }

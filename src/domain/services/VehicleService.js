@@ -111,15 +111,22 @@ class VehicleService {
 
     // Guardar nuevas fotos en GridFS si están presentes
     if (files && files.vehiclePhoto && files.vehiclePhoto.buffer) {
-      const ext = path.extname(files.vehiclePhoto.originalname);
-      const filename = `vehicle-${driverId}-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
-      const fileId = await gridfsStorage.saveFile(files.vehiclePhoto.buffer, {
-        filename,
-        contentType: files.vehiclePhoto.mimetype,
-        category: 'vehicles',
-        userId: driverId
-      });
-      updateData.vehiclePhotoUrl = `/api/files/${fileId}`;
+      try {
+        console.log('[VehicleService] Saving vehicle photo to GridFS...');
+        const ext = path.extname(files.vehiclePhoto.originalname);
+        const filename = `vehicle-${driverId}-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
+        const fileId = await gridfsStorage.saveFile(files.vehiclePhoto.buffer, {
+          filename,
+          contentType: files.vehiclePhoto.mimetype,
+          category: 'vehicles',
+          userId: driverId
+        });
+        console.log('[VehicleService] Vehicle photo saved to GridFS:', fileId);
+        updateData.vehiclePhotoUrl = `/api/files/${fileId}`;
+      } catch (error) {
+        console.error('[VehicleService] Error saving vehicle photo to GridFS:', error);
+        throw new Error(`Failed to save vehicle photo: ${error.message}`);
+      }
       
       // Eliminar foto antigua de GridFS si existe
       if (existingVehicle.vehiclePhotoUrl) {
@@ -136,15 +143,22 @@ class VehicleService {
     }
 
     if (files && files.soatPhoto && files.soatPhoto.buffer) {
-      const ext = path.extname(files.soatPhoto.originalname);
-      const filename = `soat-${driverId}-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
-      const fileId = await gridfsStorage.saveFile(files.soatPhoto.buffer, {
-        filename,
-        contentType: files.soatPhoto.mimetype,
-        category: 'vehicles',
-        userId: driverId
-      });
-      updateData.soatPhotoUrl = `/api/files/${fileId}`;
+      try {
+        console.log('[VehicleService] Saving SOAT photo to GridFS...');
+        const ext = path.extname(files.soatPhoto.originalname);
+        const filename = `soat-${driverId}-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
+        const fileId = await gridfsStorage.saveFile(files.soatPhoto.buffer, {
+          filename,
+          contentType: files.soatPhoto.mimetype,
+          category: 'vehicles',
+          userId: driverId
+        });
+        console.log('[VehicleService] SOAT photo saved to GridFS:', fileId);
+        updateData.soatPhotoUrl = `/api/files/${fileId}`;
+      } catch (error) {
+        console.error('[VehicleService] Error saving SOAT photo to GridFS:', error);
+        throw new Error(`Failed to save SOAT photo: ${error.message}`);
+      }
       
       // Eliminar foto antigua de GridFS si existe
       if (existingVehicle.soatPhotoUrl) {

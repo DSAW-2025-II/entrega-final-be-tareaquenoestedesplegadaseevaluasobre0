@@ -124,8 +124,11 @@ class VehicleController {
    */
   async updateMyVehicle(req, res, next) {
     try {
+      console.log('[VehicleController] updateMyVehicle called');
+      
       // Get driverId from authenticated user (req.user.sub from JWT)
       const driverId = req.user?.sub;
+      console.log('[VehicleController] driverId:', driverId);
 
       if (!driverId) {
         return res.status(401).json({
@@ -139,15 +142,45 @@ class VehicleController {
         vehiclePhoto: req.files?.vehiclePhoto?.[0],
         soatPhoto: req.files?.soatPhoto?.[0]
       };
+      
+      console.log('[VehicleController] Files received:', {
+        vehiclePhoto: files.vehiclePhoto ? {
+          fieldname: files.vehiclePhoto.fieldname,
+          originalname: files.vehiclePhoto.originalname,
+          mimetype: files.vehiclePhoto.mimetype,
+          size: files.vehiclePhoto.size,
+          hasBuffer: !!files.vehiclePhoto.buffer,
+          bufferLength: files.vehiclePhoto.buffer?.length
+        } : null,
+        soatPhoto: files.soatPhoto ? {
+          fieldname: files.soatPhoto.fieldname,
+          originalname: files.soatPhoto.originalname,
+          mimetype: files.soatPhoto.mimetype,
+          size: files.soatPhoto.size,
+          hasBuffer: !!files.soatPhoto.buffer,
+          bufferLength: files.soatPhoto.buffer?.length
+        } : null
+      });
+      
+      console.log('[VehicleController] Request body:', req.body);
 
       // Create update DTO from request
       const updateVehicleDto = UpdateVehicleDto.fromMultipart(req.body, files);
+      console.log('[VehicleController] DTO created:', {
+        plate: updateVehicleDto.plate,
+        brand: updateVehicleDto.brand,
+        model: updateVehicleDto.model,
+        capacity: updateVehicleDto.capacity
+      });
       
       // Validate DTO
       updateVehicleDto.validate();
+      console.log('[VehicleController] DTO validated successfully');
 
       // Update vehicle through service (pasar archivos para guardar en GridFS)
+      console.log('[VehicleController] Calling vehicleService.updateVehicle...');
       const vehicle = await this.vehicleService.updateVehicle(driverId, updateVehicleDto, files);
+      console.log('[VehicleController] Vehicle updated successfully:', vehicle?.id);
 
       if (!vehicle) {
         return res.status(404).json({

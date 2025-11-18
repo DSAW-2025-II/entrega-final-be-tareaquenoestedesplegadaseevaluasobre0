@@ -4,9 +4,57 @@ const { GridFSBucket } = require('mongodb');
 const { Readable } = require('stream');
 
 // Obtener bucket de GridFS para un nombre específico
-function getBucket(bucketName = 'uploads') {
-  const db = mongoose.connection.db;
-  return new GridFSBucket(db, { bucketName });
+// Asegura que la conexión esté lista antes de usar GridFS (importante en serverless)
+async function getBucket(bucketName = 'uploads') {
+  // Estados de conexión de Mongoose:
+  // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+  
+  console.log(`[GridFS] Getting bucket "${bucketName}", connection state: ${mongoose.connection.readyState}`);
+  
+  // Si está conectado, usar directamente
+  if (mongoose.connection.readyState === 1) {
+    const db = mongoose.connection.db;
+    if (!db) {
+      console.error('[GridFS] MongoDB connection ready but db is null');
+      throw new Error('MongoDB database not available');
+    }
+    console.log(`[GridFS] Using existing connection, database: ${db.databaseName}`);
+    return new GridFSBucket(db, { bucketName });
+  }
+  
+  // Si está conectando, esperar a que termine
+  if (mongoose.connection.readyState === 2) {
+    console.log('[GridFS] Connection in progress, waiting...');
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        console.error('[GridFS] Connection timeout after 10 seconds');
+        reject(new Error('MongoDB connection timeout'));
+      }, 10000);
+      
+      mongoose.connection.once('connected', () => {
+        console.log('[GridFS] Connection established');
+        clearTimeout(timeout);
+        resolve();
+      });
+      
+      mongoose.connection.once('error', (err) => {
+        console.error('[GridFS] Connection error:', err);
+        clearTimeout(timeout);
+        reject(err);
+      });
+    });
+    
+    const db = mongoose.connection.db;
+    if (!db) {
+      console.error('[GridFS] Connection ready but db is null');
+      throw new Error('MongoDB database not available after connection');
+    }
+    console.log(`[GridFS] Using newly connected database: ${db.databaseName}`);
+    return new GridFSBucket(db, { bucketName });
+  }
+  
+  // Si está desconectado o desconectándose, lanzar error
+  throw new Error(`MongoDB connection not ready. State: ${mongoose.connection.readyState} (0=disconnected, 1=connected, 2=connecting, 3=disconnecting)`);
 }
 
 /**
@@ -20,7 +68,7 @@ function getBucket(bucketName = 'uploads') {
  * @returns {Promise<string>} - ID del archivo en GridFS
  */
 async function saveFile(fileData, metadata) {
-  const bucket = getBucket();
+  const bucket = await getBucket();
   const { filename, contentType, category, userId } = metadata;
   
   // Crear stream de escritura
@@ -63,7 +111,7 @@ async function saveFile(fileData, metadata) {
  * @returns {Promise<{stream: ReadableStream, metadata: Object}>}
  */
 async function getFile(fileId) {
-  const bucket = getBucket();
+  const bucket = await getBucket();
   const _id = new mongoose.Types.ObjectId(fileId);
   
   // Verificar que el archivo existe
@@ -93,7 +141,7 @@ async function getFile(fileId) {
  * @returns {Promise<void>}
  */
 async function deleteFile(fileId) {
-  const bucket = getBucket();
+  const bucket = await getBucket();
   const _id = new mongoose.Types.ObjectId(fileId);
   
   return new Promise((resolve, reject) => {
@@ -116,7 +164,7 @@ async function deleteFile(fileId) {
  */
 async function fileExists(fileId) {
   try {
-    const bucket = getBucket();
+    const bucket = await getBucket();
     const _id = new mongoose.Types.ObjectId(fileId);
     const files = await bucket.find({ _id }).toArray();
     return files.length > 0;
